@@ -1,0 +1,104 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
+import { generateDocument, requestDocument } from "@/lib/client-documents";
+import { PreviewCard } from "@/components/workflow";
+import { isTemplateComplete } from "@/lib/templates";
+
+export default function PreviewPage() {
+  const searchParams = useSearchParams();
+  const docId = searchParams.get("docId");
+  const [document, setDocument] = useState<DocumentRecord | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const template: ExtractedTemplate | null = document?.template_json ?? null;
+
+  const loadDocument = useCallback(async () => {
+    if (!docId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const next = await requestDocument(docId);
+      setDocument(next);
+    } catch (loadError) {
+      setError((loadError as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [docId]);
+
+  useEffect(() => {
+    if (docId) {
+      void loadDocument();
+    } else {
+      setDocument(null);
+    }
+  }, [docId, loadDocument]);
+
+  const completionRatio = useMemo(() => {
+    const placeholders = template?.placeholders.filter((ph) => ph.required) ?? [];
+    if (placeholders.length === 0) return 0;
+    const filled = placeholders.filter((ph) => Boolean(ph.value)).length;
+    return Math.round((filled / placeholders.length) * 100);
+  }, [template]);
+
+  const templateReady = template ? isTemplateComplete(template) : false;
+
+  const handleGenerate = useCallback(async () => {
+    if (!docId) return;
+    setIsGenerating(true);
+    setGenerateError(null);
+    try {
+      const next = await generateDocument(docId);
+      setDocument(next);
+    } catch (generateErr) {
+      setGenerateError((generateErr as Error).message);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [docId]);
+
+  return (
+    <div className="space-y-8">
+      <header className="space-y-3">
+        <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Screen three</p>
+        <h1 className="text-3xl font-semibold text-white">Preview & export</h1>
+        <p className="text-sm text-slate-300">
+          Generate a fresh filled document and download it when everything looks right.
+        </p>
+        <p className="text-xs text-slate-500">Document ID: {docId ?? "missing"}</p>
+      </header>
+
+      {!docId ? (
+        <MissingDocState />
+      ) : loading ? (
+        <p className="text-sm text-slate-300">Loading document…</p>
+      ) : error ? (
+        <p className="text-sm text-rose-300">{error}</p>
+      ) : (
+        <PreviewCard
+          document={document}
+          template={template}
+          completionRatio={completionRatio}
+          templateReady={templateReady}
+          isGenerating={isGenerating}
+          generateError={generateError}
+          onGenerate={handleGenerate}
+        />
+      )}
+    </div>
+  );
+}
+
+function MissingDocState() {
+  return (
+    <div className="rounded-2xl border border-dashed border-white/20 bg-white/5 p-6 text-sm text-slate-300">
+      Provide a <code className="text-white">docId</code> query parameter first. Use the upload page to create one.
+    </div>
+  );
+}
