@@ -233,10 +233,6 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
 
   const outstandingCount = Math.max(placeholderStats.total - placeholderStats.filled, 0);
   const nextPlaceholder = placeholderStats.next;
-  const nextDisplayName = getPlaceholderDisplayName(nextPlaceholder);
-  const guidanceText = nextPlaceholder
-    ? `Lexsy still needs ${nextDisplayName}. Ask for the exact wording before confirming the field.`
-    : "All placeholders look complete. Offer to review the preview or finalize the document.";
   useEffect(() => {
     if (!hasHydratedMessages.current) return;
     if (!nextPlaceholder) return;
@@ -262,26 +258,7 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
   }, [document.filename, isBusy, messages, nextPlaceholder, outstandingCount, setMessages]);
 
   return (
-    <div className="flex flex-1 flex-col gap-4 text-white">
-      <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-slate-200">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-200">
-            <span>Guided fill</span>
-            <span className="rounded-full border border-white/20 px-2 py-0.5 text-[11px] tracking-normal text-white">
-              Filled {placeholderStats.filled}/{placeholderStats.total || 0}
-            </span>
-          </div>
-          <span className="text-left text-[11px] font-medium text-slate-200 sm:text-xs">
-            {guidanceText}
-          </span>
-        </div>
-        {outstandingCount > 0 ? (
-          <p className="mt-2 text-[11px] text-slate-300">
-            {outstandingCount} {outstandingCount === 1 ? "placeholder remains" : "placeholders remain"}. I’ll walk you through each one.
-          </p>
-        ) : null}
-      </div>
-
+    <div className="flex flex-1 flex-col gap-3 text-white">
       <div className="relative flex-1 overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60">
         <Conversation className="h-full">
           {messages.length === 0 ? (
@@ -458,23 +435,23 @@ export function PreviewCard({
   onGenerate,
 }: PreviewCardProps) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <section className="rounded-3xl border border-white/15 bg-slate-950/60 p-4 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Preview & export</h2>
-          <p className="text-sm text-slate-500">Replace placeholders inline and download an identical .docx copy.</p>
+          <h2 className="text-lg font-semibold text-white">Preview & export</h2>
+          <p className="text-sm text-slate-300">Replace placeholders inline and download an identical .docx copy.</p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-medium text-slate-700">{completionRatio}% complete</p>
-          <div className="mt-1 h-2 w-36 rounded-full bg-slate-100">
-            <div className="h-2 rounded-full bg-indigo-600 transition-all" style={{ width: `${completionRatio}%` }} />
+          <p className="text-sm font-medium text-white/80">{completionRatio}% complete</p>
+          <div className="mt-1 h-2 w-36 rounded-full bg-white/10">
+            <div className="h-2 rounded-full bg-indigo-500 transition-all" style={{ width: `${completionRatio}%` }} />
           </div>
         </div>
       </div>
 
-      <div className="mt-4 max-h-80 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/60 p-3 text-sm leading-relaxed text-slate-800 sm:p-4">
+      <div className="mt-4 max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/60 p-3 text-sm leading-relaxed text-slate-100 sm:p-4">
         {!template ? (
-          <p className="text-slate-500">
+          <p className="text-slate-300">
             Upload a template to see its structure here. We render the doc inserting your latest answers so you never lose formatting context.
           </p>
         ) : (
@@ -487,7 +464,7 @@ export function PreviewCard({
           type="button"
           onClick={onGenerate}
           disabled={!document || !templateReady || isGenerating}
-          className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-white/20"
         >
           {isGenerating ? "Generating..." : "Generate filled .docx"}
         </button>
@@ -495,13 +472,13 @@ export function PreviewCard({
           href={document?.filled_blob_url ? `/api/documents/${document.id}/download` : undefined}
           aria-disabled={!document?.filled_blob_url}
           className={clsx(
-            "rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-400 hover:text-slate-800",
+            "rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-white/80 transition hover:border-white/40 hover:text-white",
             !document?.filled_blob_url && "pointer-events-none opacity-50"
           )}
         >
           Download latest file
         </a>
-        {generateError ? <p className="text-sm text-rose-600">{generateError}</p> : null}
+        {generateError ? <p className="text-sm text-rose-200">{generateError}</p> : null}
       </div>
     </section>
   );
@@ -576,7 +553,7 @@ function PreviewBody({ template }: { template: ExtractedTemplate }) {
 
   if (!template.docAst || template.docAst.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-300">
         The LLM could not reconstruct the AST. Placeholder values will still sync below.
       </p>
     );

@@ -1,12 +1,14 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
 import { requestDocument } from "@/lib/client-documents";
 import { ChatPanel, DocumentPreviewWindow, PlaceholderTable } from "@/components/workflow";
 import clsx from "clsx";
 import { useFlowSession } from "../flow-session-context";
+
+type Pane = "document" | "placeholders";
 
 export default function FillPage() {
   return (
@@ -23,7 +25,7 @@ function FillPageContent() {
   const [document, setDocument] = useState<DocumentRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activePane, setActivePane] = useState<"document" | "placeholders">("document");
+  const [activePane, setActivePane] = useState<Pane>("document");
   const { setDocId: setActiveDocId, setIsDirty } = useFlowSession();
 
   const template: ExtractedTemplate | null = document?.template_json ?? null;
@@ -75,15 +77,13 @@ function FillPageContent() {
     void loadDocument({ background: true });
   }, [loadDocument]);
 
-  const docSummary = useMemo(() => {
-    if (!document) return null;
-    const total = document.template_json?.placeholders.length ?? 0;
-    const filled = document.template_json?.placeholders.filter((ph) => Boolean(ph.value)).length ?? 0;
-    return { total, filled };
-  }, [document]);
+  const handleJumpToPreview = useCallback(() => {
+    if (!docId) return;
+    router.push(`/preview?docId=${docId}`);
+  }, [docId, router]);
 
   return (
-    <div className="space-y-4">
+    <div >
 
       {!docId ? (
         <MissingDocState />
@@ -95,43 +95,12 @@ function FillPageContent() {
         <div className="border-white/10 bg-slate-950/40 p-4 sm:p-5 shadow-lg">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,0.6fr)_minmax(0,0.4fr)]">
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="inline-flex rounded-full border border-white/20 p-1 text-sm text-white/70">
-                  {(["document", "placeholders"] as const).map((pane) => (
-                    <button
-                      key={pane}
-                      type="button"
-                      onClick={() => setActivePane(pane)}
-                      className={clsx(
-                        "rounded-full px-4 py-1.5 font-medium transition",
-                        activePane === pane ? "bg-white text-slate-900" : "hover:text-white"
-                      )}
-                    >
-                      {pane === "document" ? "Document" : "Placeholders"}
-                    </button>
-                  ))}
-                </div>
-                {activePane === "document" && template ? (
-                  <span className="text-xs uppercase tracking-[0.3em] text-indigo-200">
-                    {template.placeholders.length} placeholders
-                  </span>
-                ) : null}
-                {docSummary ? (
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                    <span>
-                      Filled {docSummary.filled}/{docSummary.total}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => router.push("/preview" + (docId ? `?docId=${docId}` : ""))}
-                      className="rounded-full border border-white/30 px-3 py-1 text-white/80 transition hover:text-white"
-                      disabled={!docId}
-                    >
-                      Jump to preview
-                    </button>
-                  </div>
-                ) : null}
-              </div>
+              <FillHeader
+                activePane={activePane}
+                onPaneChange={setActivePane}
+                onJumpToPreview={handleJumpToPreview}
+                previewDisabled={!docId}
+              />
 
               {activePane === "document" ? (
                 <DocumentPreviewWindow template={template} />
@@ -146,6 +115,50 @@ function FillPageContent() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+type FillHeaderProps = {
+  activePane: Pane;
+  onPaneChange: (pane: Pane) => void;
+  onJumpToPreview: () => void;
+  previewDisabled: boolean;
+};
+
+function FillHeader({
+  activePane,
+  onPaneChange,
+  onJumpToPreview,
+  previewDisabled,
+}: FillHeaderProps) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+      <div className="inline-flex rounded-full border border-white/15 bg-white/5 p-0.5 text-white/70">
+        {(["document", "placeholders"] as Pane[]).map((pane) => (
+          <button
+            key={pane}
+            type="button"
+            onClick={() => onPaneChange(pane)}
+            className={clsx(
+              "rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] transition",
+              activePane === pane
+                ? "bg-white text-slate-900"
+                : "text-slate-300 hover:text-white hover:bg-white/10"
+            )}
+          >
+            {pane === "document" ? "Document" : "Placeholders"}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onJumpToPreview}
+        className="inline-flex items-center rounded-full border border-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80 transition hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+        disabled={previewDisabled}
+      >
+        Jump to preview
+      </button>
     </div>
   );
 }
