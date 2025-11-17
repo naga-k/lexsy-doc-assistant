@@ -72,7 +72,7 @@ function PreviewPageContent() {
   }, [docId]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {!docId ? (
         <MissingDocState />
       ) : loading ? (

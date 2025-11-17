@@ -83,7 +83,7 @@ function FillPageContent() {
   }, [document]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
 
       {!docId ? (
         <MissingDocState />
@@ -92,7 +92,7 @@ function FillPageContent() {
       ) : error ? (
         <p className="text-sm text-rose-300">{error}</p>
       ) : (
-        <div className="border-white/10 bg-slate-950/40 p-6 shadow-lg">
+        <div className="border-white/10 bg-slate-950/40 p-4 sm:p-5 shadow-lg">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,0.6fr)_minmax(0,0.4fr)]">
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">

@@ -120,7 +120,7 @@ export interface ChatPanelProps {
 
 export function ChatPanel({ document, onTemplateUpdated }: ChatPanelProps) {
   return (
-    <section className="flex min-h-[460px] flex-col rounded-3xl border border-white/15 bg-slate-950/60 p-6 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur">
+    <section className="flex min-h-[460px] flex-col rounded-3xl border border-white/15 bg-slate-950/60 p-4 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur sm:p-5">
       {!document ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-slate-900/60 px-5 py-4 text-center text-sm text-slate-300">
           Upload a .docx template to unlock the chat experience.
@@ -424,8 +424,8 @@ function renderMessageText(message: UIMessage): string {
 
 export function DocumentPreviewWindow({ template }: { template: ExtractedTemplate | null }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-sm text-slate-100">
-      <div className="max-h-72 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/60 p-4 leading-relaxed">
+    <section className="border border-white/10 bg-slate-950/60 p-3 text-sm text-slate-100 sm:p-4">
+      <div className="max-h-72 overflow-y-auto border border-white/10 bg-slate-900/60 p-3 leading-relaxed sm:p-4">
         {!template ? (
           <p className="text-slate-400">
             Upload a template to see a live preview. Lexsy keeps the AST representation visible while you fill fields.
@@ -458,7 +458,7 @@ export function PreviewCard({
   onGenerate,
 }: PreviewCardProps) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Preview & export</h2>
@@ -472,7 +472,7 @@ export function PreviewCard({
         </div>
       </div>
 
-      <div className="mt-5 max-h-80 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm leading-relaxed text-slate-800">
+      <div className="mt-4 max-h-80 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/60 p-3 text-sm leading-relaxed text-slate-800 sm:p-4">
         {!template ? (
           <p className="text-slate-500">
             Upload a template to see its structure here. We render the doc inserting your latest answers so you never lose formatting context.
@@ -482,7 +482,7 @@ export function PreviewCard({
         )}
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={onGenerate}
@@ -509,7 +509,7 @@ export function PreviewCard({
 
 export function PlaceholderTable({ template }: { template: ExtractedTemplate | null }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h3 className="text-base font-semibold text-slate-900">Placeholder tracker</h3>

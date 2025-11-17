@@ -7,7 +7,9 @@ export default function FlowLayout({ children }: { children: ReactNode }) {
     <FlowSessionProvider>
       <div className="flex min-h-screen flex-col bg-slate-950 text-white">
         <FlowNav />
-        <main className="flex-1 w-full px-4 py-10 sm:px-8 lg:px-16">{children}</main>
+        <main className="flex-1 w-full py-3 sm:py-4 lg:py-6">
+          <div className="mx-auto w-full px-3 sm:px-4 lg:px-6">{children}</div>
+        </main>
       </div>
     </FlowSessionProvider>
   );
