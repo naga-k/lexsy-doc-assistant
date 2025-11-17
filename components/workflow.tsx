@@ -24,7 +24,6 @@ import {
   PromptInputSubmit,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
-import { Suggestions, Suggestion } from "@/components/ai-elements/suggestion";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
 
 export interface UploadCardProps {
@@ -129,9 +128,6 @@ export function ChatPanel({ document, onTemplateUpdated, showHeader = true }: Ch
               Lexsy guides missing fields and syncs placeholders while you chat with our AI and legal team.
             </p>
           </div>
-          <span className="rounded-full border border-white/30 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-slate-300">
-            AI + human
-          </span>
         </div>
       ) : (
         <div className="mb-4">
@@ -180,11 +176,6 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
     },
   });
 
-  const suggestionPresets = useMemo(
-    () => ["Fill the missing share price", "Summarize investor terms", "What's left before download?"],
-    []
-  );
-
   const handlePromptSubmit = useCallback(
     async ({ text }: PromptInputMessage) => {
       const value = text.trim();
@@ -232,17 +223,6 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
           <ConversationScrollButton className="bg-white/10 text-white hover:bg-white/20" />
         </Conversation>
       </div>
-      <Suggestions className="px-2">
-        {suggestionPresets.map((suggestion) => (
-          <Suggestion
-            key={suggestion}
-            suggestion={suggestion}
-            onClick={handleSuggestion}
-            variant="ghost"
-            className="border border-white/15 text-white/80 hover:text-white"
-          />
-        ))}
-      </Suggestions>
       <PromptInput
         onSubmit={handlePromptSubmit}
         className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur"
@@ -257,11 +237,7 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
           <PromptInputTools>
             {error ? (
               <span className="text-xs text-rose-200">{error.message}</span>
-            ) : (
-              <span className="text-xs text-slate-300">
-                Structured values only—Lexsy never stores your transcript.
-              </span>
-            )}
+            ) : null}
           </PromptInputTools>
           <PromptInputSubmit
             status={status}

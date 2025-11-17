@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
 import { requestDocument } from "@/lib/client-documents";
 import { ChatPanel, DocumentPreviewWindow, PlaceholderTable } from "@/components/workflow";
+import clsx from "clsx";
+import { useFlowSession } from "../flow-session-context";
 
 export default function FillPage() {
   const searchParams = useSearchParams();
@@ -13,6 +15,8 @@ export default function FillPage() {
   const [document, setDocument] = useState<DocumentRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activePane, setActivePane] = useState<"document" | "placeholders">("document");
+  const { setDocId: setActiveDocId, setIsDirty } = useFlowSession();
 
   const template: ExtractedTemplate | null = document?.template_json ?? null;
 
@@ -37,6 +41,15 @@ export default function FillPage() {
       setDocument(null);
     }
   }, [docId, loadDocument]);
+
+  useEffect(() => {
+    setActiveDocId(docId);
+    setIsDirty(Boolean(docId));
+    return () => {
+      setActiveDocId(null);
+      setIsDirty(false);
+    };
+  }, [docId, setActiveDocId, setIsDirty]);
 
   const handleTemplateUpdated = useCallback(() => {
     void loadDocument();
@@ -83,12 +96,48 @@ export default function FillPage() {
       ) : error ? (
         <p className="text-sm text-rose-300">{error}</p>
       ) : (
-        <div className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
-            <DocumentPreviewWindow template={template} />
-            <ChatPanel document={document} onTemplateUpdated={handleTemplateUpdated} />
+        <div className="rounded-3xl border border-white/10 bg-slate-950/40 p-6 shadow-lg">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,0.6fr)_minmax(0,0.4fr)]">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="inline-flex rounded-full border border-white/20 p-1 text-sm text-white/70">
+                  {(["document", "placeholders"] as const).map((pane) => (
+                    <button
+                      key={pane}
+                      type="button"
+                      onClick={() => setActivePane(pane)}
+                      className={clsx(
+                        "rounded-full px-4 py-1.5 font-medium transition",
+                        activePane === pane ? "bg-white text-slate-900" : "hover:text-white"
+                      )}
+                    >
+                      {pane === "document" ? "Document" : "Placeholders"}
+                    </button>
+                  ))}
+                </div>
+                {activePane === "document" && template ? (
+                  <span className="text-xs uppercase tracking-[0.3em] text-indigo-200">
+                    {template.placeholders.length} placeholders
+                  </span>
+                ) : null}
+                {activePane === "placeholders" && docSummary ? (
+                  <span className="text-xs text-slate-300">
+                    Filled {docSummary.filled}/{docSummary.total}
+                  </span>
+                ) : null}
+              </div>
+
+              {activePane === "document" ? (
+                <DocumentPreviewWindow template={template} />
+              ) : (
+                <PlaceholderTable template={template} />
+              )}
+            </div>
+
+            <div className="lg:self-start lg:sticky lg:top-6">
+              <ChatPanel document={document} onTemplateUpdated={handleTemplateUpdated} />
+            </div>
           </div>
-          <PlaceholderTable template={template} />
         </div>
       )}
     </div>
