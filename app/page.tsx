@@ -9,59 +9,6 @@ import { isTemplateComplete } from "@/lib/templates";
 
 type DocumentResponse = { document: DocumentRecord; error?: string };
 
-const heroImageUrl =
-  "https://cdn.prod.website-files.com/65030261282cb8dc8d56f660/669e8921529a7f101e0f65ee_5.png";
-
-const serviceHighlights = [
-  {
-    title: "For Startups",
-    description:
-      "Guidance from incorporation to scaling—cap tables, founder equity, fundraising, and compliant contracts bundled with the same AI chat that fills your documents.",
-    accent: "Formation",
-  },
-  {
-    title: "For Investors",
-    description:
-      "Fund formation, LP communications, side letters, and diligence docs with clarity and responsiveness that echo the Lexsy concierge experience.",
-    accent: "Funds",
-  },
-];
-
-const testimonials = [
-  {
-    name: "Oliver Cameron",
-    role: "General Partner, Reasons to Be Optimistic",
-    quote:
-      "Kristina has been an invaluable partner to my fund. She combines fast, creative legal work with clear communication and a great sense of humor.",
-    avatar:
-      "https://cdn.prod.website-files.com/65030262282cb8dc8d56f8b8/6717211f9a16352e6269a027_Oliver.jpeg",
-  },
-  {
-    name: "Amber Illig",
-    role: "General Partner, The Council Fund",
-    quote:
-      "Kristina was the perfect partner to help us onboard LPs while staying transparent about costs—she keeps the deal momentum alive.",
-    avatar:
-      "https://cdn.prod.website-files.com/65030262282cb8dc8d56f8b8/6719342dd6d399a3f23ce3fa_Amber%20Illig.jpeg",
-  },
-  {
-    name: "Rima Seiilova-Olson",
-    role: "Co-founder & CEO, Tenvos",
-    quote:
-      "Kristina steered us through stock awards, commercial agreements, and fundraising with the steady hand we needed when everything felt complex.",
-    avatar:
-      "https://cdn.prod.website-files.com/65030262282cb8dc8d56f8b8/6717255f43b30134fed8d8ed_Rima%20Seiilova-Olson.jpeg",
-  },
-  {
-    name: "Balaji Gopinath",
-    role: "General Partner, Kubera Venture Capital",
-    quote:
-      "Lexsy handled fund compliance and filings so we could keep our focus on LPs and portfolio companies. Their responsiveness keeps us ahead.",
-    avatar:
-      "https://cdn.prod.website-files.com/65030262282cb8dc8d56f8b8/67193397edfe0efa9f45cc0f_Balaji%20Gopinath.jpeg",
-  },
-];
-
 export default function HomePage() {
   const [document, setDocument] = useState<DocumentRecord | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -151,19 +98,31 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-10">
-        <HeroShowcase />
-        <ServiceHighlightsSection />
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10">
+        <header className="space-y-3">
+          <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Lexsy flow</p>
+          <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl">
+            Upload. Answer once. Download.
+          </h1>
+          <p className="text-base text-slate-300">
+            A single screen mirrors the stages from your mockup: drop a .docx, fill placeholders
+            via chat with context, then export the finished file.
+          </p>
+        </header>
+        <div className="grid gap-6 lg:grid-cols-[1fr_auto_1.35fr_auto_1fr] lg:items-start">
           <UploadCard
             document={document}
             uploading={uploading}
             error={uploadError}
             onFileSelected={handleFileUpload}
           />
-          <ChatPanel document={document} onTemplateUpdated={handleTemplateRefresh} />
-        </div>
-        <div className="grid gap-6 lg:grid-cols-2">
+          <FlowArrow />
+          <FillStepCard
+            document={document}
+            template={template}
+            onTemplateUpdated={handleTemplateRefresh}
+          />
+          <FlowArrow />
           <PreviewCard
             document={document}
             template={template}
@@ -173,134 +132,56 @@ export default function HomePage() {
             generateError={generateError}
             isGenerating={isGenerating}
           />
-          <PlaceholderTable template={template} />
         </div>
-        <TestimonialsSection />
       </div>
     </main>
   );
 }
 
-function HeroShowcase() {
+function FlowArrow() {
   return (
-    <section className="rounded-3xl border border-white/10 bg-linear-to-br from-slate-900 via-slate-950 to-indigo-900 p-8 shadow-[0_30px_90px_rgba(15,23,42,0.65)]">
-      <div className="grid gap-8 lg:grid-cols-[1.05fr,0.95fr]">
-        <div className="space-y-5">
-          <div className="flex items-center gap-3 text-xs uppercase tracking-[0.4em] text-indigo-200">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            Lexsy partner
-          </div>
-          <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl">
-            Legal partner on your hero’s journey
-          </h1>
-          <p className="text-base text-slate-200">
-            Lean on Lexsy for AI-assisted placeholder discovery, instant legal chat, and polished export-ready documents that let you move faster.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <a
-              href="https://stan.store/Lexsy"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-indigo-900/40 transition hover:-translate-y-0.5"
-            >
-              Apply to Work With Us
-            </a>
-            <a
-              href="#upload-template"
-              className="rounded-full border border-white/40 px-5 py-2 text-sm font-semibold text-white transition hover:border-white"
-            >
-              Upload a template
-            </a>
-          </div>
-          <div className="flex flex-wrap gap-8 text-sm text-slate-200">
-            <div>
-              <p className="text-2xl font-semibold text-white">24h</p>
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">avg. chat turn</p>
-            </div>
-            <div>
-              <p className="text-2xl font-semibold text-white">14K+</p>
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">fields filled</p>
-            </div>
-          </div>
-        </div>
-        <div className="relative flex items-center justify-center">
-          <div className="absolute top-4 right-4 hidden rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-xs text-white backdrop-blur md:block">
-            <p className="font-semibold text-white">Lexsy AI</p>
-            <p className="text-[11px] text-slate-200">Launch-ready documents</p>
-          </div>
-          <img
-            src={heroImageUrl}
-            alt="Hero visual"
-            className="h-80 w-full max-w-[420px] rounded-[30px] object-cover shadow-[0_35px_70px_rgba(0,0,0,0.4)]"
-          />
-        </div>
-      </div>
-    </section>
+    <div className="flex items-center justify-center text-slate-500" aria-hidden="true">
+      <span className="hidden text-3xl lg:block">→</span>
+      <span className="text-3xl lg:hidden">↓</span>
+    </div>
   );
 }
 
-function ServiceHighlightsSection() {
+interface FillStepCardProps {
+  document: DocumentRecord | null;
+  template: ExtractedTemplate | null;
+  onTemplateUpdated: () => void;
+}
+
+function FillStepCard({ document, template, onTemplateUpdated }: FillStepCardProps) {
+  const showEmptyState = !document;
+
   return (
     <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-black/30">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Services</p>
-          <h2 className="text-2xl font-semibold text-white">Services for startups and investors</h2>
+          <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Step 2</p>
+          <h2 className="text-2xl font-semibold text-white">Fill placeholders in context</h2>
           <p className="text-sm text-slate-300">
-            We support every stage—formation, fundraising, hiring, compliance, and operations—while keeping you aligned with your business.
+            The live doc stays on the left while Lexsy’s chat updates placeholder values on the right.
           </p>
         </div>
-        <a
-          href="/services"
-          className="text-sm font-semibold text-indigo-200 transition hover:text-white"
-        >
-          Explore all services ↗
-        </a>
+        <span className="rounded-full border border-white/30 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-slate-300">
+          AI + human
+        </span>
       </div>
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
-        {serviceHighlights.map((service) => (
-          <div
-            key={service.title}
-            className="rounded-2xl border border-white/10 bg-slate-900/60 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
-          >
-            <p className="text-[11px] uppercase tracking-[0.4em] text-emerald-300">{service.accent}</p>
-            <h3 className="mt-3 text-xl font-semibold text-white">{service.title}</h3>
-            <p className="mt-2 text-sm text-slate-300">{service.description}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function TestimonialsSection() {
-  return (
-    <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-black/30">
-      <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Testimonials</p>
-          <h2 className="text-2xl font-semibold text-white">Don’t just take our word for it</h2>
+      {showEmptyState ? (
+        <div className="mt-6 rounded-2xl border border-dashed border-white/20 bg-slate-900/40 p-6 text-sm text-slate-300">
+          Upload a .docx template to compare the original document with the chat assistant.
         </div>
-        <span className="text-sm text-slate-300">Hear from founders building faster</span>
-      </div>
-      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {testimonials.map((testimonial) => (
-          <div
-            key={testimonial.name}
-            className="flex h-full flex-col justify-between rounded-3xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-100"
-          >
-            <p className="text-base text-white">“{testimonial.quote}”</p>
-            <div className="mt-5 flex items-center gap-3">
-              <div className="h-12 w-12 overflow-hidden rounded-full bg-slate-800">
-                <img src={testimonial.avatar} alt={testimonial.name} className="h-full w-full object-cover" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-white">{testimonial.name}</p>
-                <p className="text-xs text-slate-400">{testimonial.role}</p>
-              </div>
-            </div>
-          </div>
-        ))}
+      ) : (
+        <div className="mt-6 grid gap-4 lg:grid-cols-[1.1fr,0.9fr]">
+          <DocumentPreviewWindow template={template} />
+          <ChatPanel document={document} onTemplateUpdated={onTemplateUpdated} showHeader={false} />
+        </div>
+      )}
+      <div className="mt-6">
+        <PlaceholderTable template={template} />
       </div>
     </section>
   );
@@ -383,22 +264,31 @@ function UploadCard({ document, uploading, error, onFileSelected }: UploadCardPr
 interface ChatPanelProps {
   document: DocumentRecord | null;
   onTemplateUpdated: () => void;
+  showHeader?: boolean;
 }
 
-function ChatPanel({ document, onTemplateUpdated }: ChatPanelProps) {
+function ChatPanel({ document, onTemplateUpdated, showHeader = true }: ChatPanelProps) {
   return (
     <section className="flex min-h-[420px] flex-col rounded-3xl border border-white/20 bg-slate-900/70 p-6 text-white shadow-2xl backdrop-blur">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-white">2. Fill via chat</h2>
-          <p className="text-sm text-slate-300">
-            Lexsy guides missing fields and syncs placeholders while you chat with our AI and legal team.
-          </p>
+      {showHeader ? (
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-white">2. Fill via chat</h2>
+            <p className="text-sm text-slate-300">
+              Lexsy guides missing fields and syncs placeholders while you chat with our AI and legal team.
+            </p>
+          </div>
+          <span className="rounded-full border border-white/30 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-slate-300">
+            AI + human
+          </span>
         </div>
-        <span className="rounded-full border border-white/30 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-slate-300">
-          AI + human
-        </span>
-      </div>
+      ) : (
+        <div className="mb-4">
+          <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Live chat</p>
+          <h3 className="text-base font-semibold text-white">Answer once, sync everywhere</h3>
+          <p className="text-sm text-slate-400">Lexsy updates placeholder values as soon as you reply.</p>
+        </div>
+      )}
       {!document ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-slate-900/60 px-5 py-4 text-center text-sm text-slate-300">
           Upload a .docx template to unlock the chat experience.
@@ -549,6 +439,28 @@ interface PreviewCardProps {
   isGenerating: boolean;
   generateError: string | null;
   onGenerate: () => void;
+}
+
+function DocumentPreviewWindow({ template }: { template: ExtractedTemplate | null }) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-sm text-slate-100">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Document</p>
+        {template ? (
+          <span className="text-xs text-slate-400">{template.placeholders.length} placeholders</span>
+        ) : null}
+      </div>
+      <div className="max-h-72 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/60 p-4 leading-relaxed">
+        {!template ? (
+          <p className="text-slate-400">
+            Upload a template to see a live preview. Lexsy keeps the AST representation visible while you fill fields.
+          </p>
+        ) : (
+          <PreviewBody template={template} />
+        )}
+      </div>
+    </section>
+  );
 }
 
 function PreviewCard({
