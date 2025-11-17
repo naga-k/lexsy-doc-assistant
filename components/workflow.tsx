@@ -45,10 +45,11 @@ export function UploadCard({
 }: UploadCardProps) {
   const isHero = variant === "hero";
   const containerClasses = clsx(
-    "p-6",
     isHero
-      ? "rounded-3xl border border-white/20 bg-gradient-to-br from-white/5 via-white/0 to-white/5 shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur"
-      : "rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-sm"
+      ? showDetails
+        ? "rounded-3xl border border-white/20 bg-gradient-to-br from-white/5 via-white/0 to-white/5 p-6 shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur"
+        : "p-0"
+      : "rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-sm"
   );
   const headingClass = isHero ? "text-white" : "text-slate-900";
   const bodyClass = isHero ? "text-slate-200" : "text-slate-500";
@@ -56,7 +57,7 @@ export function UploadCard({
     ? "rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80"
     : "rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700";
   const dropzoneClasses = clsx(
-    "flex flex-col gap-3 rounded-xl border border-dashed p-5 text-sm",
+    "flex flex-col items-center gap-3 rounded-xl border border-dashed p-5 text-center text-sm",
     showDetails ? "mt-5" : "",
     isHero
       ? "border-white/40 bg-transparent text-slate-200"
@@ -86,8 +87,8 @@ export function UploadCard({
         </div>
       ) : null}
       <div className={dropzoneClasses}>
-        <p className="flex flex-wrap items-center gap-3">
-          <span>Drag & drop a .docx file or</span>
+        <div className="space-y-2">
+          <p>Drag & drop a .docx file or</p>
           <label className={browseLabelClasses}>
             browse
             <input
@@ -101,7 +102,7 @@ export function UploadCard({
               }}
             />
           </label>
-        </p>
+        </div>
         <p className={helperTextClass}>
           Supported format: Microsoft Word .docx.
         </p>
