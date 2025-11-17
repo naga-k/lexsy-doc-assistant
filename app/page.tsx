@@ -9,6 +9,59 @@ import { isTemplateComplete } from "@/lib/templates";
 
 type DocumentResponse = { document: DocumentRecord; error?: string };
 
+const heroImageUrl =
+  "https://cdn.prod.website-files.com/65030261282cb8dc8d56f660/669e8921529a7f101e0f65ee_5.png";
+
+const serviceHighlights = [
+  {
+    title: "For Startups",
+    description:
+      "Guidance from incorporation to scaling—cap tables, founder equity, fundraising, and compliant contracts bundled with the same AI chat that fills your documents.",
+    accent: "Formation",
+  },
+  {
+    title: "For Investors",
+    description:
+      "Fund formation, LP communications, side letters, and diligence docs with clarity and responsiveness that echo the Lexsy concierge experience.",
+    accent: "Funds",
+  },
+];
+
+const testimonials = [
+  {
+    name: "Oliver Cameron",
+    role: "General Partner, Reasons to Be Optimistic",
+    quote:
+      "Kristina has been an invaluable partner to my fund. She combines fast, creative legal work with clear communication and a great sense of humor.",
+    avatar:
+      "https://cdn.prod.website-files.com/65030262282cb8dc8d56f8b8/6717211f9a16352e6269a027_Oliver.jpeg",
+  },
+  {
+    name: "Amber Illig",
+    role: "General Partner, The Council Fund",
+    quote:
+      "Kristina was the perfect partner to help us onboard LPs while staying transparent about costs—she keeps the deal momentum alive.",
+    avatar:
+      "https://cdn.prod.website-files.com/65030262282cb8dc8d56f8b8/6719342dd6d399a3f23ce3fa_Amber%20Illig.jpeg",
+  },
+  {
+    name: "Rima Seiilova-Olson",
+    role: "Co-founder & CEO, Tenvos",
+    quote:
+      "Kristina steered us through stock awards, commercial agreements, and fundraising with the steady hand we needed when everything felt complex.",
+    avatar:
+      "https://cdn.prod.website-files.com/65030262282cb8dc8d56f8b8/6717255f43b30134fed8d8ed_Rima%20Seiilova-Olson.jpeg",
+  },
+  {
+    name: "Balaji Gopinath",
+    role: "General Partner, Kubera Venture Capital",
+    quote:
+      "Lexsy handled fund compliance and filings so we could keep our focus on LPs and portfolio companies. Their responsiveness keeps us ahead.",
+    avatar:
+      "https://cdn.prod.website-files.com/65030262282cb8dc8d56f8b8/67193397edfe0efa9f45cc0f_Balaji%20Gopinath.jpeg",
+  },
+];
+
 export default function HomePage() {
   const [document, setDocument] = useState<DocumentRecord | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -97,9 +150,11 @@ export default function HomePage() {
   const templateReady = template ? isTemplateComplete(template) : false;
 
   return (
-    <main className="min-h-screen bg-slate-50 py-8 text-slate-900">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 lg:flex-row lg:gap-8">
-        <div className="flex w-full flex-col gap-4 lg:w-1/2">
+    <main className="min-h-screen bg-slate-950 text-white">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-10">
+        <HeroShowcase />
+        <ServiceHighlightsSection />
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
           <UploadCard
             document={document}
             uploading={uploading}
@@ -108,7 +163,7 @@ export default function HomePage() {
           />
           <ChatPanel document={document} onTemplateUpdated={handleTemplateRefresh} />
         </div>
-        <div className="flex w-full flex-col gap-4 lg:w-1/2">
+        <div className="grid gap-6 lg:grid-cols-2">
           <PreviewCard
             document={document}
             template={template}
@@ -120,8 +175,134 @@ export default function HomePage() {
           />
           <PlaceholderTable template={template} />
         </div>
+        <TestimonialsSection />
       </div>
     </main>
+  );
+}
+
+function HeroShowcase() {
+  return (
+    <section className="rounded-3xl border border-white/10 bg-linear-to-br from-slate-900 via-slate-950 to-indigo-900 p-8 shadow-[0_30px_90px_rgba(15,23,42,0.65)]">
+      <div className="grid gap-8 lg:grid-cols-[1.05fr,0.95fr]">
+        <div className="space-y-5">
+          <div className="flex items-center gap-3 text-xs uppercase tracking-[0.4em] text-indigo-200">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            Lexsy partner
+          </div>
+          <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl">
+            Legal partner on your hero’s journey
+          </h1>
+          <p className="text-base text-slate-200">
+            Lean on Lexsy for AI-assisted placeholder discovery, instant legal chat, and polished export-ready documents that let you move faster.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <a
+              href="https://stan.store/Lexsy"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-indigo-900/40 transition hover:-translate-y-0.5"
+            >
+              Apply to Work With Us
+            </a>
+            <a
+              href="#upload-template"
+              className="rounded-full border border-white/40 px-5 py-2 text-sm font-semibold text-white transition hover:border-white"
+            >
+              Upload a template
+            </a>
+          </div>
+          <div className="flex flex-wrap gap-8 text-sm text-slate-200">
+            <div>
+              <p className="text-2xl font-semibold text-white">24h</p>
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">avg. chat turn</p>
+            </div>
+            <div>
+              <p className="text-2xl font-semibold text-white">14K+</p>
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">fields filled</p>
+            </div>
+          </div>
+        </div>
+        <div className="relative flex items-center justify-center">
+          <div className="absolute top-4 right-4 hidden rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-xs text-white backdrop-blur md:block">
+            <p className="font-semibold text-white">Lexsy AI</p>
+            <p className="text-[11px] text-slate-200">Launch-ready documents</p>
+          </div>
+          <img
+            src={heroImageUrl}
+            alt="Hero visual"
+            className="h-80 w-full max-w-[420px] rounded-[30px] object-cover shadow-[0_35px_70px_rgba(0,0,0,0.4)]"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ServiceHighlightsSection() {
+  return (
+    <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-black/30">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Services</p>
+          <h2 className="text-2xl font-semibold text-white">Services for startups and investors</h2>
+          <p className="text-sm text-slate-300">
+            We support every stage—formation, fundraising, hiring, compliance, and operations—while keeping you aligned with your business.
+          </p>
+        </div>
+        <a
+          href="/services"
+          className="text-sm font-semibold text-indigo-200 transition hover:text-white"
+        >
+          Explore all services ↗
+        </a>
+      </div>
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        {serviceHighlights.map((service) => (
+          <div
+            key={service.title}
+            className="rounded-2xl border border-white/10 bg-slate-900/60 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
+          >
+            <p className="text-[11px] uppercase tracking-[0.4em] text-emerald-300">{service.accent}</p>
+            <h3 className="mt-3 text-xl font-semibold text-white">{service.title}</h3>
+            <p className="mt-2 text-sm text-slate-300">{service.description}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TestimonialsSection() {
+  return (
+    <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-black/30">
+      <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Testimonials</p>
+          <h2 className="text-2xl font-semibold text-white">Don’t just take our word for it</h2>
+        </div>
+        <span className="text-sm text-slate-300">Hear from founders building faster</span>
+      </div>
+      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {testimonials.map((testimonial) => (
+          <div
+            key={testimonial.name}
+            className="flex h-full flex-col justify-between rounded-3xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-100"
+          >
+            <p className="text-base text-white">“{testimonial.quote}”</p>
+            <div className="mt-5 flex items-center gap-3">
+              <div className="h-12 w-12 overflow-hidden rounded-full bg-slate-800">
+                <img src={testimonial.avatar} alt={testimonial.name} className="h-full w-full object-cover" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">{testimonial.name}</p>
+                <p className="text-xs text-slate-400">{testimonial.role}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -155,7 +336,10 @@ interface UploadCardProps {
 
 function UploadCard({ document, uploading, error, onFileSelected }: UploadCardProps) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section
+      id="upload-template"
+      className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+    >
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">1. Upload template</h2>
@@ -203,17 +387,20 @@ interface ChatPanelProps {
 
 function ChatPanel({ document, onTemplateUpdated }: ChatPanelProps) {
   return (
-    <section className="flex min-h-[420px] flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="flex min-h-[420px] flex-col rounded-3xl border border-white/20 bg-slate-900/70 p-6 text-white shadow-2xl backdrop-blur">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">2. Fill via chat</h2>
-          <p className="text-sm text-slate-500">
-            Lexsy asks for missing fields and updates placeholders live.
+          <h2 className="text-lg font-semibold text-white">2. Fill via chat</h2>
+          <p className="text-sm text-slate-300">
+            Lexsy guides missing fields and syncs placeholders while you chat with our AI and legal team.
           </p>
         </div>
+        <span className="rounded-full border border-white/30 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-slate-300">
+          AI + human
+        </span>
       </div>
       {!document ? (
-        <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-center text-sm text-slate-500">
+        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-slate-900/60 px-5 py-4 text-center text-sm text-slate-300">
           Upload a .docx template to unlock the chat experience.
         </div>
       ) : (
@@ -274,8 +461,8 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
   );
 
   return (
-    <div className="flex flex-1 flex-col gap-4">
-      <div className="flex-1 space-y-3 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+    <div className="flex flex-1 flex-col gap-4 text-white">
+      <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-slate-900/60 p-4">
         {messages.length === 0 ? (
           <div className="text-sm text-slate-500">
             Lexsy is ready. Start by telling me about your company name or investor details.
@@ -296,12 +483,9 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
           ))
         )}
       </div>
-      <form
-        className="space-y-2"
-        onSubmit={submitMessage}
-      >
+      <form className="space-y-3" onSubmit={submitMessage}>
         <textarea
-          className="min-h-24 w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+          className="min-h-24 w-full resize-none rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-sm text-white placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
           placeholder="Answer Lexsy here..."
           value={draft}
           disabled={isLoading}
@@ -309,16 +493,16 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
         />
         <div className="flex items-center justify-between">
           {error ? (
-            <p className="text-sm text-rose-600">{error.message}</p>
+            <p className="text-xs text-rose-300">{error.message}</p>
           ) : (
-            <span className="text-xs text-slate-400">
-              We only store structured values, not your raw chat transcript.
+            <span className="text-xs text-slate-300">
+              Structured values only—Lexsy never keeps your free-form chat transcript.
             </span>
           )}
           <button
             type="submit"
             disabled={isLoading || !draft.trim()}
-            className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="rounded-full bg-linear-to-r from-indigo-500 to-purple-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-900/60 transition enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Send
           </button>
@@ -327,7 +511,7 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
       <button
         type="button"
         onClick={() => setDraft("")}
-        className="text-left text-xs text-slate-400 hover:text-slate-500"
+        className="text-left text-xs font-semibold uppercase tracking-[0.3em] text-slate-400 transition hover:text-white"
       >
         Clear draft
       </button>
