@@ -10,6 +10,7 @@ import {
   type ReactNode,
   useContext,
 } from "react";
+import type { ExtendedToolUIState } from "./types";
 
 type ToolUIPartApproval =
   | {
@@ -41,7 +42,7 @@ type ToolUIPartApproval =
 
 type ConfirmationContextValue = {
   approval: ToolUIPartApproval;
-  state: ToolUIPart["state"];
+  state: ExtendedToolUIState;
 };
 
 const ConfirmationContext = createContext<ConfirmationContextValue | null>(
@@ -60,7 +61,7 @@ const useConfirmation = () => {
 
 export type ConfirmationProps = ComponentProps<typeof Alert> & {
   approval?: ToolUIPartApproval;
-  state: ToolUIPart["state"];
+  state: ExtendedToolUIState;
 };
 
 export const Confirmation = ({

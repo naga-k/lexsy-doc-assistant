@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
 import { requestDocument } from "@/lib/client-documents";
@@ -9,6 +9,14 @@ import clsx from "clsx";
 import { useFlowSession } from "../flow-session-context";
 
 export default function FillPage() {
+  return (
+    <Suspense fallback={<FillPageFallback />}>
+      <FillPageContent />
+    </Suspense>
+  );
+}
+
+function FillPageContent() {
   const searchParams = useSearchParams();
   const docId = searchParams.get("docId");
   const router = useRouter();
@@ -140,6 +148,15 @@ export default function FillPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function FillPageFallback() {
+  return (
+    <div className="space-y-4">
+      <div className="h-6 w-40 animate-pulse rounded-full bg-white/20" />
+      <div className="h-32 animate-pulse rounded-3xl border border-white/10 bg-white/5" />
     </div>
   );
 }
