@@ -72,30 +72,6 @@ function FillPageContent() {
 
   return (
     <div className="space-y-8">
-      <header className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Screen two</p>
-        <h1 className="text-3xl font-semibold text-white">Fill placeholders with context</h1>
-        <p className="text-sm text-slate-300">
-          Keep the document on the left while you answer via chat on the right. We only persist structured
-          values.
-        </p>
-        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-          <span>Document ID: {docId ?? "missing"}</span>
-          {docSummary ? (
-            <span>
-              Filled {docSummary.filled}/{docSummary.total}
-            </span>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => router.push("/preview" + (docId ? `?docId=${docId}` : ""))}
-            className="rounded-full border border-white/30 px-3 py-1 text-white/80 transition hover:text-white"
-            disabled={!docId}
-          >
-            Jump to preview
-          </button>
-        </div>
-      </header>
 
       {!docId ? (
         <MissingDocState />
@@ -128,10 +104,20 @@ function FillPageContent() {
                     {template.placeholders.length} placeholders
                   </span>
                 ) : null}
-                {activePane === "placeholders" && docSummary ? (
-                  <span className="text-xs text-slate-300">
-                    Filled {docSummary.filled}/{docSummary.total}
-                  </span>
+                {docSummary ? (
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                    <span>
+                      Filled {docSummary.filled}/{docSummary.total}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => router.push("/preview" + (docId ? `?docId=${docId}` : ""))}
+                      className="rounded-full border border-white/30 px-3 py-1 text-white/80 transition hover:text-white"
+                      disabled={!docId}
+                    >
+                      Jump to preview
+                    </button>
+                  </div>
                 ) : null}
               </div>
 

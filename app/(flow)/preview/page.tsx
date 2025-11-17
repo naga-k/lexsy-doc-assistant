@@ -73,15 +73,6 @@ function PreviewPageContent() {
 
   return (
     <div className="space-y-8">
-      <header className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Screen three</p>
-        <h1 className="text-3xl font-semibold text-white">Preview & export</h1>
-        <p className="text-sm text-slate-300">
-          Generate a fresh filled document and download it when everything looks right.
-        </p>
-        <p className="text-xs text-slate-500">Document ID: {docId ?? "missing"}</p>
-      </header>
-
       {!docId ? (
         <MissingDocState />
       ) : loading ? (

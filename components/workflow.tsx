@@ -45,10 +45,11 @@ export function UploadCard({
 }: UploadCardProps) {
   const isHero = variant === "hero";
   const containerClasses = clsx(
-    "p-6",
     isHero
-      ? "rounded-3xl border border-white/20 bg-gradient-to-br from-white/5 via-white/0 to-white/5 shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur"
-      : "rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-sm"
+      ? showDetails
+        ? "rounded-3xl border border-white/20 bg-gradient-to-br from-white/5 via-white/0 to-white/5 p-6 shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur"
+        : "p-0"
+      : "rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-sm"
   );
   const headingClass = isHero ? "text-white" : "text-slate-900";
   const bodyClass = isHero ? "text-slate-200" : "text-slate-500";
@@ -56,11 +57,17 @@ export function UploadCard({
     ? "rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80"
     : "rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700";
   const dropzoneClasses = clsx(
-    "flex flex-col gap-3 rounded-xl border border-dashed p-5 text-sm",
+    "flex flex-col items-center gap-3 rounded-xl border border-dashed p-5 text-center text-sm",
     showDetails ? "mt-5" : "",
     isHero
-      ? "border-white/30 bg-white/5 text-slate-200"
+      ? "border-white/40 bg-transparent text-slate-200"
       : "border-slate-300 bg-slate-50/60 text-slate-600"
+  );
+  const browseLabelClasses = clsx(
+    "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] transition",
+    isHero
+      ? "border-white/40 bg-white/10 text-white hover:border-white/70 hover:bg-white/15"
+      : "border-slate-400 bg-white text-slate-900 hover:border-slate-500"
   );
   const helperTextClass = isHero ? "text-xs text-slate-300" : "text-xs text-slate-500";
   const uploadingTextClass = isHero ? "text-sm text-indigo-200" : "text-sm text-indigo-600";
@@ -80,14 +87,9 @@ export function UploadCard({
         </div>
       ) : null}
       <div className={dropzoneClasses}>
-        <p>
-          Drag & drop a .docx file or{" "}
-          <label
-            className={clsx(
-              "cursor-pointer font-semibold",
-              isHero ? "text-white hover:text-indigo-200" : "text-indigo-600 hover:text-indigo-500"
-            )}
-          >
+        <div className="space-y-2">
+          <p>Drag & drop a .docx file or</p>
+          <label className={browseLabelClasses}>
             browse
             <input
               type="file"
@@ -100,9 +102,9 @@ export function UploadCard({
               }}
             />
           </label>
-        </p>
+        </div>
         <p className={helperTextClass}>
-          Supported format: Microsoft Word .docx. Files are uploaded to Vercel Blob storage.
+          Supported format: Microsoft Word .docx.
         </p>
         {uploading ? <p className={uploadingTextClass}>Uploading and extracting placeholders…</p> : null}
         {error ? <p className={errorTextClass}>{error}</p> : null}
@@ -114,28 +116,11 @@ export function UploadCard({
 export interface ChatPanelProps {
   document: DocumentRecord | null;
   onTemplateUpdated: () => void;
-  showHeader?: boolean;
 }
 
-export function ChatPanel({ document, onTemplateUpdated, showHeader = true }: ChatPanelProps) {
+export function ChatPanel({ document, onTemplateUpdated }: ChatPanelProps) {
   return (
     <section className="flex min-h-[460px] flex-col rounded-3xl border border-white/15 bg-slate-950/60 p-6 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur">
-      {showHeader ? (
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-white">Fill via chat</h2>
-            <p className="text-sm text-slate-300">
-              Lexsy guides missing fields and syncs placeholders while you chat with our AI and legal team.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="mb-4">
-          <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Live chat</p>
-          <h3 className="text-base font-semibold text-white">Answer once, sync everywhere</h3>
-          <p className="text-sm text-slate-400">Lexsy updates placeholder values as soon as you reply.</p>
-        </div>
-      )}
       {!document ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-slate-900/60 px-5 py-4 text-center text-sm text-slate-300">
           Upload a .docx template to unlock the chat experience.
@@ -190,13 +175,6 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
     [sendMessage, clearError]
   );
 
-  const handleSuggestion = useCallback(
-    (suggestion: string) => {
-      void sendMessage({ text: suggestion });
-    },
-    [sendMessage]
-  );
-
   const isBusy = status === "submitted" || status === "streaming";
 
   return (
@@ -204,11 +182,14 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
       <div className="relative flex-1 overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60">
         <Conversation className="h-full">
           {messages.length === 0 ? (
-            <ConversationEmptyState
-              className="text-slate-300"
-              title="Upload to start chatting"
-              description="Tell Lexsy about investors, caps, or dates and watch placeholders fill themselves."
-            />
+            <ConversationEmptyState>
+              <div className="space-y-1 text-center">
+                <h2 className="text-lg font-semibold text-white">Fill via chat</h2>
+                <p className="text-sm text-slate-300">
+                  Lexsy guides missing fields and syncs placeholders while you chat with our AI and legal team.
+                </p>
+              </div>
+            </ConversationEmptyState>
           ) : (
             <ConversationContent>
               {messages.map((message, index) => (
@@ -277,12 +258,6 @@ function renderMessageText(message: UIMessage): string {
 export function DocumentPreviewWindow({ template }: { template: ExtractedTemplate | null }) {
   return (
     <section className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-sm text-slate-100">
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Document</p>
-        {template ? (
-          <span className="text-xs text-slate-400">{template.placeholders.length} placeholders</span>
-        ) : null}
-      </div>
       <div className="max-h-72 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/60 p-4 leading-relaxed">
         {!template ? (
           <p className="text-slate-400">
