@@ -85,7 +85,7 @@ function FillPageContent() {
   }, [docId, router]);
 
   return (
-    <div className="flex h-screen min-h-0 flex-col gap-1 overflow-hidden px-2 py-4 sm:px-4 lg:px-5">
+    <div className="flex h-full flex-1 min-h-0 flex-col gap-1 overflow-hidden px-2 py-4 sm:px-4 lg:px-5">
       {!docId ? (
         <MissingDocState />
       ) : loading ? (
@@ -174,7 +174,7 @@ function FillTopBar({
         className="inline-flex items-center rounded-full border border-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80 transition hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
         disabled={previewDisabled}
       >
-        Jump to preview
+        Preview & Generate
       </button>
     </div>
   );

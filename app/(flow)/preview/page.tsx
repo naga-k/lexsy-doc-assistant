@@ -73,7 +73,7 @@ function PreviewPageContent() {
   }, [docId]);
 
   return (
-    <div className="flex h-screen min-h-0 flex-col gap-1 overflow-hidden px-2 py-4 sm:px-4 lg:px-5">
+    <div className="flex h-full flex-1 min-h-0 flex-col gap-1 overflow-hidden px-2 py-4 sm:px-4 lg:px-5">
       {!docId ? (
         <MissingDocState />
       ) : loading ? (
