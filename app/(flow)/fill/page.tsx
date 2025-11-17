@@ -1,12 +1,20 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
 import { requestDocument } from "@/lib/client-documents";
 import { ChatPanel, DocumentPreviewWindow, PlaceholderTable } from "@/components/workflow";
 
 export default function FillPage() {
+  return (
+    <Suspense fallback={<FillPageFallback />}>
+      <FillPageContent />
+    </Suspense>
+  );
+}
+
+function FillPageContent() {
   const searchParams = useSearchParams();
   const docId = searchParams.get("docId");
   const router = useRouter();
@@ -109,6 +117,10 @@ export default function FillPage() {
       )}
     </div>
   );
+}
+
+function FillPageFallback() {
+  return <div className="text-sm text-slate-300">Loading fill workspace…</div>;
 }
 
 function MissingDocState() {

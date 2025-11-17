@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
 import { generateDocument, requestDocument } from "@/lib/client-documents";
@@ -9,6 +9,14 @@ import { PreviewCard } from "@/components/workflow";
 import { isTemplateComplete } from "@/lib/templates";
 
 export default function PreviewPage() {
+  return (
+    <Suspense fallback={<PreviewPageFallback />}>
+      <PreviewPageContent />
+    </Suspense>
+  );
+}
+
+function PreviewPageContent() {
   const searchParams = useSearchParams();
   const docId = searchParams.get("docId");
   const [document, setDocument] = useState<DocumentRecord | null>(null);
@@ -121,6 +129,10 @@ export default function PreviewPage() {
       )}
     </div>
   );
+}
+
+function PreviewPageFallback() {
+  return <div className="text-sm text-slate-300">Loading preview workspace…</div>;
 }
 
 function MissingDocState() {
