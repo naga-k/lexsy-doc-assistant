@@ -3,22 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const links = [
-  { href: "/upload", label: "Upload" },
-  { href: "/fill", label: "Fill" },
-  { href: "/preview", label: "Preview" },
-];
+const links = [{ href: "/upload", label: "Upload" }];
 
 export function FlowNav() {
   const pathname = usePathname();
   return (
     <nav className="border-b border-white/10 bg-slate-950/90 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Lexsy</p>
-          <p className="text-sm text-slate-300">Each step lives on its own page.</p>
-        </div>
-        <div className="flex items-center gap-1">
+      <div className="flex w-full items-center justify-between px-4 py-4 sm:px-8 lg:px-16">
+        <Link href="/" className="text-sm font-semibold uppercase tracking-[0.4em] text-indigo-200">
+          Lexsy
+        </Link>
+        <div className="flex items-center gap-2">
           {links.map((link) => {
             const isActive = pathname === link.href;
             return (
