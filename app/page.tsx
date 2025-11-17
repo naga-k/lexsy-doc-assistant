@@ -1,9 +1,32 @@
 'use client';
 
-import { useCallback, useMemo, useState } from "react";
+import type { ChangeEvent } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import clsx from "clsx";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
+import {
+  Message as ChatMessage,
+  MessageContent,
+  MessageResponse,
+} from "@/components/ai-elements/message";
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputSubmit,
+  type PromptInputMessage,
+} from "@/components/ai-elements/prompt-input";
+import { Suggestions, Suggestion } from "@/components/ai-elements/suggestion";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
 import { isTemplateComplete } from "@/lib/templates";
 
@@ -15,6 +38,16 @@ export default function HomePage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const heroFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const heroStats = useMemo(
+    () => [
+      { label: "Avg extraction", value: "18s" },
+      { label: "Placeholders synced", value: "38" },
+      { label: "Ready-to-sign", value: "1 click" },
+    ],
+    []
+  );
 
   const refreshDocument = useCallback(async (id: string) => {
     try {
@@ -63,6 +96,21 @@ export default function HomePage() {
     []
   );
 
+  const triggerHeroUpload = useCallback(() => {
+    heroFileInputRef.current?.click();
+  }, []);
+
+  const handleHeroFileChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0] ?? null;
+      if (file) {
+        void handleFileUpload(file);
+      }
+      event.target.value = "";
+    },
+    [handleFileUpload]
+  );
+
   const handleGenerate = useCallback(async () => {
     if (!document) return;
     setIsGenerating(true);
@@ -98,17 +146,75 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10">
-        <header className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Lexsy flow</p>
-          <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl">
-            Upload. Answer once. Download.
-          </h1>
-          <p className="text-base text-slate-300">
-            A single screen mirrors the stages from your mockup: drop a .docx, fill placeholders
-            via chat with context, then export the finished file.
+      <section className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-12 lg:py-16">
+        <div className="grid gap-12 lg:grid-cols-[1.05fr,0.95fr]">
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Screen one · Elegant upload</p>
+              <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl">
+                Start with a luxurious upload, finish with a lawyer-ready draft.
+              </h1>
+              <p className="text-base text-slate-300">
+                Lexsy mirrors your mock flow: drop a template, watch the preview update in real time,
+                and chat with an AI co-pilot that knows every placeholder.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <button
+                type="button"
+                onClick={triggerHeroUpload}
+                className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:-translate-y-0.5"
+              >
+                Upload a .docx
+              </button>
+              <a
+                href="#workflow"
+                className="rounded-full border border-white/30 px-5 py-3 text-sm font-semibold text-white/80 transition hover:text-white"
+              >
+                See the Lexsy flow
+              </a>
+              <input
+                ref={heroFileInputRef}
+                type="file"
+                accept=".docx"
+                className="hidden"
+                onChange={handleHeroFileChange}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {heroStats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300"
+                >
+                  <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">{stat.label}</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">{stat.value}</p>
+                </div>
+              ))}
+            </div>
+            <UploadCard
+              document={document}
+              uploading={uploading}
+              error={uploadError}
+              onFileSelected={handleFileUpload}
+              variant="hero"
+            />
+          </div>
+          <FlowScreens />
+        </div>
+      </section>
+
+      <section id="workflow" className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-16">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Screens two & three</p>
+            <h2 className="text-3xl font-semibold text-white">Upload → Context → Download, on one surface</h2>
+          </div>
+          <p className="max-w-xl text-sm text-slate-400">
+            Three live cards mirror your storyboard: the left column preserves the original, the middle
+            pairs it with chat, and the right exports a polished version.
           </p>
-        </header>
+        </div>
         <div className="grid gap-6 lg:grid-cols-[1fr_auto_1.35fr_auto_1fr] lg:items-start">
           <UploadCard
             document={document}
@@ -133,7 +239,7 @@ export default function HomePage() {
             isGenerating={isGenerating}
           />
         </div>
-      </div>
+      </section>
     </main>
   );
 }
@@ -143,6 +249,57 @@ function FlowArrow() {
     <div className="flex items-center justify-center text-slate-500" aria-hidden="true">
       <span className="hidden text-3xl lg:block">→</span>
       <span className="text-3xl lg:hidden">↓</span>
+    </div>
+  );
+}
+
+function FlowScreens() {
+  const frames = [
+    {
+      title: "Upload",
+      caption: "Lexsy ingests the .docx and locates placeholders automatically.",
+      image: "/flow-upload.svg",
+    },
+    {
+      title: "Realtime context",
+      caption: "Keep the original doc visible while you answer in chat.",
+      image: "/flow-context.svg",
+    },
+    {
+      title: "Review & export",
+      caption: "One click to render a filled copy that mirrors the master.",
+      image: "/flow-complete.svg",
+    },
+  ];
+
+  return (
+    <div className="grid gap-6">
+      {frames.map((frame, index) => (
+        <div
+          key={frame.title}
+          className="rounded-3xl border border-white/10 bg-white/5 [@supports(backdrop-filter:blur(0px))]:backdrop-blur"
+        >
+          <div className="flex items-center justify-between px-4 pt-4 text-xs uppercase tracking-[0.4em] text-indigo-200">
+            <span>
+              {index + 1 < 10 ? `0${index + 1}` : index + 1}. {frame.title}
+            </span>
+            <span>Real-time</span>
+          </div>
+          <div className="px-4 pb-4">
+            <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70">
+              <Image
+                src={frame.image}
+                alt={`${frame.title} frame`}
+                width={640}
+                height={400}
+                priority={index === 0}
+                className="h-auto w-full"
+              />
+            </div>
+            <p className="mt-3 text-sm text-slate-200">{frame.caption}</p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -213,31 +370,52 @@ interface UploadCardProps {
   uploading: boolean;
   error: string | null;
   onFileSelected: (file: File | null) => void;
+  variant?: "default" | "hero";
 }
 
-function UploadCard({ document, uploading, error, onFileSelected }: UploadCardProps) {
+function UploadCard({ document, uploading, error, onFileSelected, variant = "default" }: UploadCardProps) {
+  const isHero = variant === "hero";
+  const containerClasses = clsx(
+    "p-6",
+    isHero
+      ? "rounded-3xl border border-white/20 bg-gradient-to-br from-white/5 via-white/0 to-white/5 shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur"
+      : "rounded-2xl border border-slate-200 bg-white shadow-sm"
+  );
+  const headingClass = isHero ? "text-white" : "text-slate-900";
+  const bodyClass = isHero ? "text-slate-200" : "text-slate-500";
+  const badgeClass = isHero
+    ? "rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80"
+    : "rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700";
+  const dropzoneClasses = clsx(
+    "mt-5 flex flex-col gap-3 rounded-xl border border-dashed p-5 text-sm",
+    isHero
+      ? "border-white/30 bg-white/5 text-slate-200"
+      : "border-slate-300 bg-slate-50/60 text-slate-600"
+  );
+  const helperTextClass = isHero ? "text-xs text-slate-300" : "text-xs text-slate-500";
+  const uploadingTextClass = isHero ? "text-sm text-indigo-200" : "text-sm text-indigo-600";
+  const errorTextClass = isHero ? "text-sm text-rose-200" : "text-sm text-rose-600";
+
   return (
-    <section
-      id="upload-template"
-      className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-    >
+    <section id="upload-template" className={containerClasses}>
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">1. Upload template</h2>
-          <p className="text-sm text-slate-500">
+          <h2 className={clsx("text-lg font-semibold", headingClass)}>1. Upload template</h2>
+          <p className={clsx("text-sm", bodyClass)}>
             We store the original template privately and keep formatting intact.
           </p>
         </div>
-        {document ? (
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-            {document.filename}
-          </span>
-        ) : null}
+        {document ? <span className={badgeClass}>{document.filename}</span> : null}
       </div>
-      <div className="mt-5 flex flex-col gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-5 text-sm text-slate-600">
+      <div className={dropzoneClasses}>
         <p>
           Drag & drop a .docx file or{" "}
-          <label className="cursor-pointer font-semibold text-indigo-600 hover:text-indigo-500">
+          <label
+            className={clsx(
+              "cursor-pointer font-semibold",
+              isHero ? "text-white hover:text-indigo-200" : "text-indigo-600 hover:text-indigo-500"
+            )}
+          >
             browse
             <input
               type="file"
@@ -251,11 +429,11 @@ function UploadCard({ document, uploading, error, onFileSelected }: UploadCardPr
             />
           </label>
         </p>
-        <p className="text-xs text-slate-500">
+        <p className={helperTextClass}>
           Supported format: Microsoft Word .docx. Files are uploaded to Vercel Blob storage.
         </p>
-        {uploading ? <p className="text-sm text-indigo-600">Uploading and extracting placeholders…</p> : null}
-        {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+        {uploading ? <p className={uploadingTextClass}>Uploading and extracting placeholders…</p> : null}
+        {error ? <p className={errorTextClass}>{error}</p> : null}
       </div>
     </section>
   );
@@ -269,7 +447,7 @@ interface ChatPanelProps {
 
 function ChatPanel({ document, onTemplateUpdated, showHeader = true }: ChatPanelProps) {
   return (
-    <section className="flex min-h-[420px] flex-col rounded-3xl border border-white/20 bg-slate-900/70 p-6 text-white shadow-2xl backdrop-blur">
+    <section className="flex min-h-[460px] flex-col rounded-3xl border border-white/15 bg-slate-950/60 p-6 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur">
       {showHeader ? (
         <div className="mb-4 flex items-center justify-between">
           <div>
@@ -329,82 +507,102 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
     },
   });
 
-  const [draft, setDraft] = useState("");
-  const isLoading = status === "submitted" || status === "streaming";
+  const suggestionPresets = useMemo(
+    () => [
+      "Fill the missing share price",
+      "Summarize investor terms",
+      "What's left before download?",
+    ],
+    []
+  );
 
-  const submitMessage = useCallback(
-    async (event?: React.FormEvent<HTMLFormElement>) => {
-      event?.preventDefault();
-      if (!draft.trim() || isLoading) {
-        return;
-      }
+  const handlePromptSubmit = useCallback(
+    async ({ text }: PromptInputMessage) => {
+      const value = text.trim();
+      if (!value) return;
       try {
-        await sendMessage({ text: draft.trim() });
-        setDraft("");
+        await sendMessage({ text: value });
         clearError();
-        onTemplateUpdated();
       } catch (submitError) {
         console.error(submitError);
       }
     },
-    [draft, isLoading, sendMessage, clearError, onTemplateUpdated]
+    [sendMessage, clearError]
   );
+
+  const handleSuggestion = useCallback(
+    (suggestion: string) => {
+      void sendMessage({ text: suggestion });
+    },
+    [sendMessage]
+  );
+
+  const isBusy = status === "submitted" || status === "streaming";
 
   return (
     <div className="flex flex-1 flex-col gap-4 text-white">
-      <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-        {messages.length === 0 ? (
-          <div className="text-sm text-slate-500">
-            Lexsy is ready. Start by telling me about your company name or investor details.
-          </div>
-        ) : (
-          messages.map((message, index) => (
-            <div
-              key={message.id ?? `${message.role}-${index}`}
-              className={clsx(
-                "max-w-full rounded-2xl px-4 py-2 text-sm leading-relaxed",
-                message.role === "user"
-                  ? "ml-auto bg-indigo-600 text-white"
-                  : "bg-white text-slate-900 shadow-sm"
-              )}
-            >
-              {renderMessageText(message)}
-            </div>
-          ))
-        )}
-      </div>
-      <form className="space-y-3" onSubmit={submitMessage}>
-        <textarea
-          className="min-h-24 w-full resize-none rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-sm text-white placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-          placeholder="Answer Lexsy here..."
-          value={draft}
-          disabled={isLoading}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <div className="flex items-center justify-between">
-          {error ? (
-            <p className="text-xs text-rose-300">{error.message}</p>
+      <div className="relative flex-1 overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60">
+        <Conversation className="h-full">
+          {messages.length === 0 ? (
+            <ConversationEmptyState
+              className="text-slate-300"
+              title="Upload to start chatting"
+              description="Tell Lexsy about investors, caps, or dates and watch placeholders fill themselves."
+            />
           ) : (
-            <span className="text-xs text-slate-300">
-              Structured values only—Lexsy never keeps your free-form chat transcript.
-            </span>
+            <ConversationContent>
+              {messages.map((message, index) => (
+                <ChatMessage key={message.id ?? `${message.role}-${index}`} from={message.role}>
+                  <MessageContent className="bg-transparent text-sm text-slate-50">
+                    <MessageResponse>{renderMessageText(message)}</MessageResponse>
+                  </MessageContent>
+                </ChatMessage>
+              ))}
+            </ConversationContent>
           )}
-          <button
-            type="submit"
-            disabled={isLoading || !draft.trim()}
-            className="rounded-full bg-linear-to-r from-indigo-500 to-purple-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-900/60 transition enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Send
-          </button>
-        </div>
-      </form>
-      <button
-        type="button"
-        onClick={() => setDraft("")}
-        className="text-left text-xs font-semibold uppercase tracking-[0.3em] text-slate-400 transition hover:text-white"
+        </Conversation>
+        <ConversationScrollButton className="bg-white/10 text-white hover:bg-white/20" />
+      </div>
+      <Suggestions className="px-2">
+        {suggestionPresets.map((suggestion) => (
+          <Suggestion
+            key={suggestion}
+            suggestion={suggestion}
+            onClick={handleSuggestion}
+            variant="ghost"
+            className="border border-white/15 text-white/80 hover:text-white"
+          />
+        ))}
+      </Suggestions>
+      <PromptInput
+        onSubmit={handlePromptSubmit}
+        className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur"
       >
-        Clear draft
-      </button>
+        <PromptInputBody>
+          <PromptInputTextarea
+            placeholder="Answer Lexsy here..."
+            className="border-none bg-transparent text-sm text-white placeholder:text-slate-400"
+          />
+        </PromptInputBody>
+        <PromptInputFooter className="items-center">
+          <PromptInputTools>
+            {error ? (
+              <span className="text-xs text-rose-200">{error.message}</span>
+            ) : (
+              <span className="text-xs text-slate-300">
+                Structured values only—Lexsy never stores your transcript.
+              </span>
+            )}
+          </PromptInputTools>
+          <PromptInputSubmit
+            status={status}
+            className="rounded-full bg-indigo-500 px-5 text-sm font-semibold text-white hover:bg-indigo-400"
+            disabled={isBusy}
+          >
+            {isBusy ? "Sending" : "Send"}
+          </PromptInputSubmit>
+        </PromptInputFooter>
+      </PromptInput>
     </div>
   );
 }
