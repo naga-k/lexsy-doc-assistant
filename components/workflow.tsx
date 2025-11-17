@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import clsx from "clsx";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
@@ -24,7 +24,7 @@ import {
   PromptInputSubmit,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
-import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
+import type { DocumentRecord, ExtractedTemplate, Placeholder } from "@/lib/types";
 
 export interface UploadCardProps {
   document: DocumentRecord | null;
@@ -153,13 +153,48 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
     [document.id, onTemplateUpdated]
   );
 
-  const { messages, sendMessage, status, error, clearError } = useChat({
+  const { messages, sendMessage, status, error, clearError, setMessages } = useChat({
     id: document.id,
     transport,
     onFinish: () => {
       onTemplateUpdated();
     },
   });
+
+  const storageKey = useMemo(() => `lexsy-chat-${document.id}`, [document.id]);
+  const hasHydratedMessages = useRef(false);
+
+  useEffect(() => {
+    hasHydratedMessages.current = false;
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (hasHydratedMessages.current) return;
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.sessionStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setMessages(parsed);
+        }
+      }
+    } catch (storageError) {
+      console.warn("Unable to hydrate chat history", storageError);
+    } finally {
+      hasHydratedMessages.current = true;
+    }
+  }, [setMessages, storageKey]);
+
+  useEffect(() => {
+    if (!hasHydratedMessages.current) return;
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.setItem(storageKey, JSON.stringify(messages));
+    } catch (storageError) {
+      console.warn("Unable to persist chat history", storageError);
+    }
+  }, [messages, storageKey]);
 
   const handlePromptSubmit = useCallback(
     async ({ text }: PromptInputMessage) => {
@@ -176,9 +211,77 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
   );
 
   const isBusy = status === "submitted" || status === "streaming";
+  const placeholderStats = useMemo(() => {
+    const placeholders = document.template_json?.placeholders ?? [];
+    let filled = 0;
+    let next: (typeof placeholders)[number] | null = null;
+
+    for (const placeholder of placeholders) {
+      if (placeholder.value) {
+        filled += 1;
+      } else if (!next) {
+        next = placeholder;
+      }
+    }
+
+    return {
+      total: placeholders.length,
+      filled,
+      next,
+    };
+  }, [document.template_json]);
+
+  const outstandingCount = Math.max(placeholderStats.total - placeholderStats.filled, 0);
+  const nextPlaceholder = placeholderStats.next;
+  const nextDisplayName = getPlaceholderDisplayName(nextPlaceholder);
+  const guidanceText = nextPlaceholder
+    ? `Lexsy still needs ${nextDisplayName}. Ask for the exact wording before confirming the field.`
+    : "All placeholders look complete. Offer to review the preview or finalize the document.";
+  useEffect(() => {
+    if (!hasHydratedMessages.current) return;
+    if (!nextPlaceholder) return;
+    if (isBusy) return;
+
+    const guidanceKey = nextPlaceholder.key;
+    if (hasGuidanceForKey(messages, guidanceKey)) {
+      return;
+    }
+
+    const guidanceMessage = buildGuidanceMessage({
+      documentTitle: document.filename,
+      placeholder: nextPlaceholder,
+      outstandingCount,
+    });
+
+    setMessages((prev) => {
+      if (hasGuidanceForKey(prev, guidanceKey)) {
+        return prev;
+      }
+      return prev.concat(guidanceMessage);
+    });
+  }, [document.filename, isBusy, messages, nextPlaceholder, outstandingCount, setMessages]);
 
   return (
     <div className="flex flex-1 flex-col gap-4 text-white">
+      <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-slate-200">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-200">
+            <span>Guided fill</span>
+            <span className="rounded-full border border-white/20 px-2 py-0.5 text-[11px] tracking-normal text-white">
+              Filled {placeholderStats.filled}/{placeholderStats.total || 0}
+            </span>
+          </div>
+          <span className="text-left text-[11px] font-medium text-slate-200 sm:text-xs">
+            {guidanceText}
+          </span>
+        </div>
+        {outstandingCount > 0 ? (
+          <p className="mt-2 text-[11px] text-slate-300">
+            {outstandingCount} {outstandingCount === 1 ? "placeholder remains" : "placeholders remain"}. I’ll walk you through each one.
+          </p>
+        ) : null}
+      </div>
+
       <div className="relative flex-1 overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60">
         <Conversation className="h-full">
           {messages.length === 0 ? (
@@ -204,6 +307,7 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
           <ConversationScrollButton className="bg-white/10 text-white hover:bg-white/20" />
         </Conversation>
       </div>
+
       <PromptInput
         onSubmit={handlePromptSubmit}
         className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur"
@@ -215,10 +319,8 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
           />
         </PromptInputBody>
         <PromptInputFooter className="items-center">
-          <PromptInputTools>
-            {error ? (
-              <span className="text-xs text-rose-200">{error.message}</span>
-            ) : null}
+          <PromptInputTools className="flex flex-wrap items-center gap-2">
+            {error ? <span className="text-xs text-rose-200">{error.message}</span> : null}
           </PromptInputTools>
           <PromptInputSubmit
             status={status}
@@ -231,6 +333,71 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
       </PromptInput>
     </div>
   );
+}
+
+function getPlaceholderDisplayName(placeholder: Placeholder | null | undefined): string {
+  if (!placeholder) {
+    return "this field";
+  }
+  const source = placeholder.exampleContext?.trim() || placeholder.raw || placeholder.key;
+  return formatPlaceholderLabel(source);
+}
+
+function formatPlaceholderLabel(value: string | undefined): string {
+  if (!value) {
+    return "this field";
+  }
+  const cleaned = value
+    .replace(/[\[\]{}<>]/g, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) {
+    return "this field";
+  }
+  return cleaned
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function hasGuidanceForKey(messages: UIMessage[], placeholderKey: string | null | undefined): boolean {
+  if (!placeholderKey) {
+    return false;
+  }
+  const guidanceId = `guidance-${placeholderKey}`;
+  return messages.some((message) => message.id === guidanceId);
+}
+
+interface GuidanceMessageConfig {
+  documentTitle: string;
+  placeholder: Placeholder;
+  outstandingCount: number;
+}
+
+function buildGuidanceMessage({
+  documentTitle,
+  placeholder,
+  outstandingCount,
+}: GuidanceMessageConfig): UIMessage {
+  const label = getPlaceholderDisplayName(placeholder);
+  const context = placeholder.exampleContext?.trim();
+  const placeholderKey = placeholder.key ?? label;
+  const remaining = outstandingCount > 1 ? `${outstandingCount - 1} more after this` : "this is the final field";
+  const intro = `Let's capture ${label} for ${documentTitle}.`;
+  const contextLine = context ? `I see it references ${context}.` : "Give me the exact wording you'd use.";
+  const wrapUp = `Once we lock this in, ${remaining}.`;
+
+  return {
+    id: `guidance-${placeholderKey}`,
+    role: "assistant",
+    parts: [
+      {
+        type: "text",
+        text: `${intro} ${contextLine} ${wrapUp}`,
+      },
+    ],
+  } as UIMessage;
 }
 
 function renderMessageText(message: UIMessage): string {
