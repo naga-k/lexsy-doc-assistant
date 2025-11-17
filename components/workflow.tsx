@@ -116,11 +116,17 @@ export function UploadCard({
 export interface ChatPanelProps {
   document: DocumentRecord | null;
   onTemplateUpdated: () => void;
+  className?: string;
 }
 
-export function ChatPanel({ document, onTemplateUpdated }: ChatPanelProps) {
+export function ChatPanel({ document, onTemplateUpdated, className }: ChatPanelProps) {
   return (
-    <section className="flex min-h-[460px] flex-col rounded-3xl border border-white/15 bg-slate-950/60 p-6 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur">
+    <section
+      className={clsx(
+        "flex min-h-[460px] flex-col overflow-hidden rounded-3xl border border-white/15 bg-slate-950/60 p-4 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur sm:p-5",
+        className
+      )}
+    >
       {!document ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-slate-900/60 px-5 py-4 text-center text-sm text-slate-300">
           Upload a .docx template to unlock the chat experience.
@@ -233,10 +239,6 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
 
   const outstandingCount = Math.max(placeholderStats.total - placeholderStats.filled, 0);
   const nextPlaceholder = placeholderStats.next;
-  const nextDisplayName = getPlaceholderDisplayName(nextPlaceholder);
-  const guidanceText = nextPlaceholder
-    ? `Lexsy still needs ${nextDisplayName}. Ask for the exact wording before confirming the field.`
-    : "All placeholders look complete. Offer to review the preview or finalize the document.";
   useEffect(() => {
     if (!hasHydratedMessages.current) return;
     if (!nextPlaceholder) return;
@@ -262,28 +264,9 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
   }, [document.filename, isBusy, messages, nextPlaceholder, outstandingCount, setMessages]);
 
   return (
-    <div className="flex flex-1 flex-col gap-4 text-white">
-      <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-slate-200">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-200">
-            <span>Guided fill</span>
-            <span className="rounded-full border border-white/20 px-2 py-0.5 text-[11px] tracking-normal text-white">
-              Filled {placeholderStats.filled}/{placeholderStats.total || 0}
-            </span>
-          </div>
-          <span className="text-left text-[11px] font-medium text-slate-200 sm:text-xs">
-            {guidanceText}
-          </span>
-        </div>
-        {outstandingCount > 0 ? (
-          <p className="mt-2 text-[11px] text-slate-300">
-            {outstandingCount} {outstandingCount === 1 ? "placeholder remains" : "placeholders remain"}. I’ll walk you through each one.
-          </p>
-        ) : null}
-      </div>
-
+    <div className="flex flex-1 min-h-0 flex-col gap-3 text-white">
       <div className="relative flex-1 overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60">
-        <Conversation className="h-full">
+        <Conversation className="flex h-full flex-col">
           {messages.length === 0 ? (
             <ConversationEmptyState>
               <div className="space-y-1 text-center">
@@ -424,8 +407,8 @@ function renderMessageText(message: UIMessage): string {
 
 export function DocumentPreviewWindow({ template }: { template: ExtractedTemplate | null }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-sm text-slate-100">
-      <div className="max-h-72 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/60 p-4 leading-relaxed">
+    <section className="flex h-full flex-col border border-white/10 bg-slate-950/60 p-3 text-sm text-slate-100 sm:p-4">
+      <div className="flex-1 overflow-y-auto border border-white/10 bg-slate-900/60 p-3 leading-relaxed sm:p-4">
         {!template ? (
           <p className="text-slate-400">
             Upload a template to see a live preview. Lexsy keeps the AST representation visible while you fill fields.
@@ -446,6 +429,8 @@ export interface PreviewCardProps {
   isGenerating: boolean;
   generateError: string | null;
   onGenerate: () => void;
+  className?: string;
+  onBackToFill?: () => void;
 }
 
 export function PreviewCard({
@@ -456,25 +441,42 @@ export function PreviewCard({
   isGenerating,
   generateError,
   onGenerate,
+  className,
+  onBackToFill,
 }: PreviewCardProps) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section
+      className={clsx(
+        "flex h-full flex-col rounded-3xl border border-white/15 bg-slate-950/60 p-4 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur sm:p-5",
+        className
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Preview & export</h2>
-          <p className="text-sm text-slate-500">Replace placeholders inline and download an identical .docx copy.</p>
+          <h2 className="text-lg font-semibold text-white">Preview & export</h2>
         </div>
-        <div className="text-right">
-          <p className="text-sm font-medium text-slate-700">{completionRatio}% complete</p>
-          <div className="mt-1 h-2 w-36 rounded-full bg-slate-100">
-            <div className="h-2 rounded-full bg-indigo-600 transition-all" style={{ width: `${completionRatio}%` }} />
+        <div className="flex flex-wrap items-center gap-3 text-right">
+          <div>
+            <p className="text-sm font-medium text-white/80">{completionRatio}% complete</p>
+            <div className="mt-1 h-2 w-36 rounded-full bg-white/10">
+              <div className="h-2 rounded-full bg-indigo-500 transition-all" style={{ width: `${completionRatio}%` }} />
+            </div>
           </div>
+                    {onBackToFill ? (
+            <button
+              type="button"
+              onClick={onBackToFill}
+              className="inline-flex items-center rounded-full border border-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80 transition hover:border-white/40 hover:text-white"
+            >
+              Back to fill
+            </button>
+          ) : null}
         </div>
       </div>
 
-      <div className="mt-5 max-h-80 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm leading-relaxed text-slate-800">
+      <div className="mt-4 flex-1 min-h-0 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/60 p-3 text-sm leading-relaxed text-slate-100 sm:p-4">
         {!template ? (
-          <p className="text-slate-500">
+          <p className="text-slate-300">
             Upload a template to see its structure here. We render the doc inserting your latest answers so you never lose formatting context.
           </p>
         ) : (
@@ -482,12 +484,12 @@ export function PreviewCard({
         )}
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={onGenerate}
           disabled={!document || !templateReady || isGenerating}
-          className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-white/20"
         >
           {isGenerating ? "Generating..." : "Generate filled .docx"}
         </button>
@@ -495,13 +497,13 @@ export function PreviewCard({
           href={document?.filled_blob_url ? `/api/documents/${document.id}/download` : undefined}
           aria-disabled={!document?.filled_blob_url}
           className={clsx(
-            "rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-400 hover:text-slate-800",
+            "rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-white/80 transition hover:border-white/40 hover:text-white",
             !document?.filled_blob_url && "pointer-events-none opacity-50"
           )}
         >
           Download latest file
         </a>
-        {generateError ? <p className="text-sm text-rose-600">{generateError}</p> : null}
+        {generateError ? <p className="text-sm text-rose-200">{generateError}</p> : null}
       </div>
     </section>
   );
@@ -509,51 +511,66 @@ export function PreviewCard({
 
 export function PlaceholderTable({ template }: { template: ExtractedTemplate | null }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-slate-900">Placeholder tracker</h3>
-          <p className="text-sm text-slate-500">Everything the document expects, in one checklist.</p>
-        </div>
-        {template ? (
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-            {template.placeholders.length} fields
-          </span>
-        ) : null}
-      </div>
+    <section className="flex h-full flex-col rounded-3xl border border-white/15 bg-slate-950/60 p-4 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur sm:p-5">
       {!template ? (
-        <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
+          <p className="rounded-xl border border-dashed border-white/20 bg-white/5 p-4 text-center text-sm text-white/70">
           Upload a document to see detected placeholders.
         </p>
       ) : (
-        <div className="max-h-72 overflow-y-auto">
-          <table className="w-full text-sm text-slate-600">
-            <thead className="text-left text-xs uppercase text-slate-500">
+        <div className="flex-1 overflow-y-auto">
+            <table className="w-full text-sm text-white/80">
+            <thead className="text-left text-xs uppercase text-white/60">
               <tr>
                 <th className="py-2 pr-3">Field</th>
-                <th className="py-2 pr-3">Original token</th>
+                <th className="py-2 pr-3">Original entry</th>
                 <th className="py-2 pr-3">Status</th>
                 <th className="py-2">Type</th>
               </tr>
             </thead>
             <tbody>
               {template.placeholders.map((placeholder) => {
-                const filled = Boolean(placeholder.value);
+                const formattedValue = (() => {
+                  if (typeof placeholder.value === "string") {
+                    return placeholder.value.trim();
+                  }
+                  if (placeholder.value === null || placeholder.value === undefined) {
+                    return "";
+                  }
+                  return String(placeholder.value).trim();
+                })();
+                const filled = formattedValue !== "";
+                const fieldLabel = formatPlaceholderLabel(
+                  placeholder.exampleContext || placeholder.raw || placeholder.key || ""
+                );
+                const currentValue = filled ? formattedValue : "";
+                const displayValue = currentValue ? truncateValue(currentValue) : "";
+                const statusText = filled
+                  ? displayValue || "Provided"
+                  : placeholder.required
+                    ? "Missing"
+                    : "Optional";
+                const originalEntry = placeholder.raw ?? placeholder.exampleContext ?? "—";
+                const statusClasses = clsx(
+                  "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-wide",
+                  filled
+                    ? "bg-indigo-500 text-white shadow-[0_0_0_1px_rgba(99,102,241,0.35)]"
+                    : placeholder.required
+                      ? "bg-rose-600 text-white shadow-[0_0_0_1px_rgba(225,29,72,0.4)]"
+                      : "bg-slate-700 text-slate-100 shadow-[0_0_0_1px_rgba(148,163,184,0.35)]"
+                );
                 return (
-                  <tr key={placeholder.key} className="border-b border-slate-100 last:border-none">
-                    <td className="py-3 pr-3 font-medium text-slate-900">{placeholder.key}</td>
-                    <td className="py-3 pr-3 text-slate-500">{placeholder.raw}</td>
+                    <tr key={placeholder.key} className="border-b border-white/10 last:border-none">
                     <td className="py-3 pr-3">
-                      <span
-                        className={clsx(
-                          "rounded-full px-2 py-0.5 text-xs font-medium",
-                          filled ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-                        )}
-                      >
-                        {filled ? "Filled" : placeholder.required ? "Missing" : "Optional"}
+                        <div className="font-medium text-white">{fieldLabel}</div>
+                        <p className="text-xs text-white/60">{placeholder.key}</p>
+                    </td>
+                      <td className="py-3 pr-3 text-white/70">{originalEntry}</td>
+                    <td className="py-3 pr-3">
+                      <span className={statusClasses} title={filled ? currentValue : undefined}>
+                        {statusText}
                       </span>
                     </td>
-                    <td className="py-3 text-xs uppercase tracking-wide text-slate-500">{placeholder.type}</td>
+                      <td className="py-3 text-xs uppercase tracking-wide text-white/50">{placeholder.type}</td>
                   </tr>
                 );
               })}
@@ -576,7 +593,7 @@ function PreviewBody({ template }: { template: ExtractedTemplate }) {
 
   if (!template.docAst || template.docAst.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-300">
         The LLM could not reconstruct the AST. Placeholder values will still sync below.
       </p>
     );
@@ -590,19 +607,30 @@ function PreviewBody({ template }: { template: ExtractedTemplate }) {
         }
         const placeholder = placeholderLookup.get(node.key);
         const value = placeholder?.value;
+        const displayValue = typeof value === "string" ? truncateValue(value, 80) : value;
+        const tooltipText = typeof value === "string" && value.trim() !== "" ? value : placeholder?.raw;
         return (
           <span
             key={`placeholder-${node.key}-${index}`}
             className={clsx(
-              "mx-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-              value ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"
+              "mx-1 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+              value
+                ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
+                : "border-amber-400/30 bg-amber-400/10 text-amber-100"
             )}
-            title={placeholder?.raw}
+            title={tooltipText}
           >
-            {value ?? placeholder?.raw ?? node.raw}
+            {displayValue ?? placeholder?.raw ?? node.raw}
           </span>
         );
       })}
     </div>
   );
+}
+
+function truncateValue(value: string, maxLength = 40): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength - 1)}…`;
 }

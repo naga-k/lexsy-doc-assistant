@@ -1,11 +1,11 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
 import { generateDocument, requestDocument } from "@/lib/client-documents";
 import { PreviewCard } from "@/components/workflow";
-import { isTemplateComplete } from "@/lib/templates";
+import { getTemplateCompletionRatio, isTemplateComplete } from "@/lib/templates";
 
 export default function PreviewPage() {
   return (
@@ -18,6 +18,7 @@ export default function PreviewPage() {
 function PreviewPageContent() {
   const searchParams = useSearchParams();
   const docId = searchParams.get("docId");
+  const router = useRouter();
   const [document, setDocument] = useState<DocumentRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,14 +49,14 @@ function PreviewPageContent() {
     }
   }, [docId, loadDocument]);
 
-  const completionRatio = useMemo(() => {
-    const placeholders = template?.placeholders.filter((ph) => ph.required) ?? [];
-    if (placeholders.length === 0) return 0;
-    const filled = placeholders.filter((ph) => Boolean(ph.value)).length;
-    return Math.round((filled / placeholders.length) * 100);
-  }, [template]);
+  const completionRatio = useMemo(() => getTemplateCompletionRatio(template), [template]);
 
   const templateReady = template ? isTemplateComplete(template) : false;
+
+  const handleBackToFill = useCallback(() => {
+    if (!docId) return;
+    router.push(`/fill?docId=${docId}`);
+  }, [docId, router]);
 
   const handleGenerate = useCallback(async () => {
     if (!docId) return;
@@ -72,7 +73,7 @@ function PreviewPageContent() {
   }, [docId]);
 
   return (
-    <div className="space-y-8">
+    <div className="flex h-full flex-1 min-h-0 flex-col gap-1 overflow-hidden px-2 py-4 sm:px-4 lg:px-5">
       {!docId ? (
         <MissingDocState />
       ) : loading ? (
@@ -80,15 +81,19 @@ function PreviewPageContent() {
       ) : error ? (
         <p className="text-sm text-rose-300">{error}</p>
       ) : (
-        <PreviewCard
-          document={document}
-          template={template}
-          completionRatio={completionRatio}
-          templateReady={templateReady}
-          isGenerating={isGenerating}
-          generateError={generateError}
-          onGenerate={handleGenerate}
-        />
+        <div className="flex flex-1 min-h-0 flex-col gap-3">
+          <PreviewCard
+            document={document}
+            template={template}
+            completionRatio={completionRatio}
+            templateReady={templateReady}
+            isGenerating={isGenerating}
+            generateError={generateError}
+            onGenerate={handleGenerate}
+            className="flex flex-1 min-h-0"
+            onBackToFill={handleBackToFill}
+          />
+        </div>
       )}
     </div>
   );

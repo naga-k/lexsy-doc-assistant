@@ -8,7 +8,7 @@ export function FlowNav() {
   const stepLabel = pathname === "/fill" ? "Step 2 · Fill" : pathname === "/preview" ? "Step 3 · Preview" : null;
 
   return (
-    <nav className="border-b border-white/10 bg-slate-950/90 backdrop-blur">
+    <nav className="shrink-0 border-b border-white/10 bg-slate-950/90 backdrop-blur">
       <div className="flex w-full items-center justify-between px-4 py-4 sm:px-8 lg:px-16">
         <Link href="/" className="text-sm font-semibold uppercase tracking-[0.4em] text-indigo-200">
           Lexsy
