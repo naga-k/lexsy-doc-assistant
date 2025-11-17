@@ -1,0 +1,37 @@
+import type { ExtractedTemplate, Placeholder } from "./types";
+
+export function getMissingPlaceholders(template: ExtractedTemplate): Placeholder[] {
+  return template.placeholders.filter((ph) => ph.required && !ph.value);
+}
+
+export function isTemplateComplete(template: ExtractedTemplate): boolean {
+  return template.placeholders.every((ph) => ph.required ? Boolean(ph.value) : true);
+}
+
+export function applyPlaceholderUpdates(
+  template: ExtractedTemplate,
+  updates: Record<string, string | null | undefined>
+): ExtractedTemplate {
+  const updatedPlaceholders = template.placeholders.map((placeholder) => {
+    const update = updates[placeholder.key];
+    if (typeof update === "undefined" || update === null || update === "") {
+      return placeholder;
+    }
+    return {
+      ...placeholder,
+      value: update,
+    };
+  });
+
+  return {
+    ...template,
+    placeholders: updatedPlaceholders,
+  };
+}
+
+export function placeholderMap(template: ExtractedTemplate): Record<string, Placeholder> {
+  return template.placeholders.reduce<Record<string, Placeholder>>((map, placeholder) => {
+    map[placeholder.key] = placeholder;
+    return map;
+  }, {});
+}
