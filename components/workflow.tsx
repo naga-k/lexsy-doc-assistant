@@ -59,8 +59,14 @@ export function UploadCard({
     "flex flex-col gap-3 rounded-xl border border-dashed p-5 text-sm",
     showDetails ? "mt-5" : "",
     isHero
-      ? "border-white/30 bg-white/5 text-slate-200"
+      ? "border-white/40 bg-transparent text-slate-200"
       : "border-slate-300 bg-slate-50/60 text-slate-600"
+  );
+  const browseLabelClasses = clsx(
+    "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] transition",
+    isHero
+      ? "border-white/40 bg-white/10 text-white hover:border-white/70 hover:bg-white/15"
+      : "border-slate-400 bg-white text-slate-900 hover:border-slate-500"
   );
   const helperTextClass = isHero ? "text-xs text-slate-300" : "text-xs text-slate-500";
   const uploadingTextClass = isHero ? "text-sm text-indigo-200" : "text-sm text-indigo-600";
@@ -80,14 +86,9 @@ export function UploadCard({
         </div>
       ) : null}
       <div className={dropzoneClasses}>
-        <p>
-          Drag & drop a .docx file or{" "}
-          <label
-            className={clsx(
-              "cursor-pointer font-semibold",
-              isHero ? "text-white hover:text-indigo-200" : "text-indigo-600 hover:text-indigo-500"
-            )}
-          >
+        <p className="flex flex-wrap items-center gap-3">
+          <span>Drag & drop a .docx file or</span>
+          <label className={browseLabelClasses}>
             browse
             <input
               type="file"
@@ -102,7 +103,7 @@ export function UploadCard({
           </label>
         </p>
         <p className={helperTextClass}>
-          Supported format: Microsoft Word .docx. Files are uploaded to Vercel Blob storage.
+          Supported format: Microsoft Word .docx.
         </p>
         {uploading ? <p className={uploadingTextClass}>Uploading and extracting placeholders…</p> : null}
         {error ? <p className={errorTextClass}>{error}</p> : null}
