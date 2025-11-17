@@ -122,7 +122,7 @@ export function ChatPanel({ document, onTemplateUpdated, className }: ChatPanelP
   return (
     <section
       className={clsx(
-        "flex min-h-[520px] flex-col overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-b from-slate-950/80 via-slate-950/60 to-slate-950/80 p-4 text-white shadow-[0_35px_80px_rgba(2,6,23,0.65)] backdrop-blur-lg sm:p-6",
+        "flex min-h-0 flex-col overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-b from-slate-950/80 via-slate-950/60 to-slate-950/80 text-white shadow-[0_35px_80px_rgba(2,6,23,0.65)] backdrop-blur-lg",
         className
       )}
     >
@@ -294,61 +294,64 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
   ]);
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col gap-5 text-white">
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[32px] border border-white/10 bg-slate-950/40">
-        {isBusy ? (
-          <div className="pointer-events-none absolute left-1/2 top-4 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-slate-950/90 px-3 py-1 text-xs font-medium text-white/80 shadow-xl">
-            <Loader size={14} className="text-indigo-200" />
-            <span>Lexsy is drafting</span>
-          </div>
-        ) : null}
-        <Conversation className="flex h-full flex-col">
-          {messages.length === 0 ? (
-            <ConversationEmptyState className="px-8 text-white/80">
-              <div className="space-y-2 text-center">
-                <h2 className="text-lg font-semibold text-white">Lexsy is getting oriented</h2>
-                <p className="text-sm text-slate-200">
-                  I’ll open with guidance based on your template and keep everything synced automatically.
-                </p>
-              </div>
-            </ConversationEmptyState>
-          ) : (
-            <ConversationContent className="gap-5 p-5 sm:p-7">
-              {messages.map((message, index) => (
-                <ChatMessage key={message.id ?? `${message.role}-${index}`} from={message.role}>
-                  <MessageContent>
-                    <MessageResponse>{renderMessageText(message)}</MessageResponse>
-                  </MessageContent>
-                </ChatMessage>
-              ))}
-            </ConversationContent>
-          )}
-          <ConversationScrollButton className="bg-white/10 text-white shadow-lg hover:bg-white/20" />
-        </Conversation>
-      </div>
-
-      <PromptInput
-        onSubmit={handlePromptSubmit}
-        className="rounded-[20px] border border-white/15 bg-slate-950/60 px-3 py-2 shadow-[0_15px_30px_rgba(2,6,23,0.65)] backdrop-blur"
-      >
-        <PromptInputTextarea
-          placeholder="Write your update…"
-          className="flex-1 border-none bg-transparent px-0 py-0 text-sm text-white placeholder:text-white/60"
-        />
-        <PromptInputSubmit
-          status={status}
-          className="flex size-11 items-center justify-center rounded-full bg-indigo-500 text-white transition hover:bg-indigo-400 disabled:opacity-70"
-          disabled={isBusy}
-          size="icon-sm"
-        >
+    <div className="flex flex-1 min-h-0 flex-col text-white">
+      <div className="relative flex min-h-0 flex-1 flex-col rounded-[32px] border border-white/10 bg-slate-950/40">
+        <div className="relative flex-1 min-h-0 overflow-hidden">
           {isBusy ? (
-            <Loader size={14} className="text-white" />
-          ) : (
-            <ArrowUpRightIcon className="size-4" />
-          )}
-        </PromptInputSubmit>
-      </PromptInput>
-      {error ? <p className="mt-2 text-xs text-rose-200">{error.message}</p> : null}
+            <div className="pointer-events-none absolute left-1/2 top-4 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-slate-950/90 px-3 py-1 text-xs font-medium text-white/80 shadow-xl">
+              <Loader size={14} className="text-indigo-200" />
+              <span>Lexsy is drafting</span>
+            </div>
+          ) : null}
+          <Conversation className="flex flex-1 flex-col overflow-x-hidden">
+            {messages.length === 0 ? (
+              <ConversationEmptyState className="px-8 text-white/80">
+                <div className="space-y-2 text-center">
+                  <h2 className="text-lg font-semibold text-white">Lexsy is getting oriented</h2>
+                  <p className="text-sm text-slate-200">
+                    I’ll open with guidance based on your template and keep everything synced automatically.
+                  </p>
+                </div>
+              </ConversationEmptyState>
+            ) : (
+              <ConversationContent className="gap-5 p-5 sm:p-7">
+                {messages.map((message, index) => (
+                  <ChatMessage key={message.id ?? `${message.role}-${index}`} from={message.role}>
+                    <MessageContent>
+                      <MessageResponse>{renderMessageText(message)}</MessageResponse>
+                    </MessageContent>
+                  </ChatMessage>
+                ))}
+              </ConversationContent>
+            )}
+            <ConversationScrollButton className="bg-white/10 text-white shadow-lg hover:bg-white/20" />
+          </Conversation>
+        </div>
+        <div className="border-t border-white/10 bg-slate-950/60 px-0 py-0">
+          <PromptInput
+            onSubmit={handlePromptSubmit}
+            className="[&_[data-slot=input-group]]:rounded-[12px] [&_[data-slot=input-group]]:border [&_[data-slot=input-group]]:border-white/12 [&_[data-slot=input-group]]:bg-white/5"
+          >
+            <PromptInputTextarea
+              placeholder="Send a message to Lexsy…"
+              className="h-11 flex-1 border-none bg-transparent !px-0 !py-0 text-left text-sm leading-[44px] text-white placeholder:text-white/60"
+            />
+            <PromptInputSubmit
+              status={status}
+              className="flex size-11 items-center justify-center rounded-full bg-indigo-500 text-white transition hover:bg-indigo-400 disabled:opacity-70"
+              disabled={isBusy}
+              size="icon-sm"
+            >
+              {isBusy ? (
+                <Loader size={14} className="text-white" />
+              ) : (
+                <ArrowUpRightIcon className="size-4" />
+              )}
+            </PromptInputSubmit>
+          </PromptInput>
+          {error ? <p className="mt-2 text-xs text-rose-200">{error.message}</p> : null}
+        </div>
+      </div>
     </div>
   );
 }
