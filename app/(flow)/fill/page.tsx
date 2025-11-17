@@ -28,19 +28,31 @@ function FillPageContent() {
 
   const template: ExtractedTemplate | null = document?.template_json ?? null;
 
-  const loadDocument = useCallback(async () => {
-    if (!docId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const next = await requestDocument(docId);
-      setDocument(next);
-    } catch (loadError) {
-      setError((loadError as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [docId]);
+  const loadDocument = useCallback(
+    async (options?: { background?: boolean }) => {
+      if (!docId) return;
+      const background = options?.background ?? false;
+      if (!background) {
+        setLoading(true);
+        setError(null);
+      }
+      try {
+        const next = await requestDocument(docId);
+        setDocument(next);
+      } catch (loadError) {
+        if (background) {
+          console.warn("Background refresh failed", loadError);
+        } else {
+          setError((loadError as Error).message);
+        }
+      } finally {
+        if (!background) {
+          setLoading(false);
+        }
+      }
+    },
+    [docId]
+  );
 
   useEffect(() => {
     if (docId) {
@@ -60,7 +72,7 @@ function FillPageContent() {
   }, [docId, setActiveDocId, setIsDirty]);
 
   const handleTemplateUpdated = useCallback(() => {
-    void loadDocument();
+    void loadDocument({ background: true });
   }, [loadDocument]);
 
   const docSummary = useMemo(() => {
@@ -80,7 +92,7 @@ function FillPageContent() {
       ) : error ? (
         <p className="text-sm text-rose-300">{error}</p>
       ) : (
-        <div className="rounded-3xl border border-white/10 bg-slate-950/40 p-6 shadow-lg">
+        <div className="border-white/10 bg-slate-950/40 p-6 shadow-lg">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,0.6fr)_minmax(0,0.4fr)]">
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">

@@ -1,5 +1,5 @@
 import { openai } from "@ai-sdk/openai";
-import { convertToCoreMessages, streamText, type UIMessage } from "ai";
+import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { NextResponse } from "next/server";
 import { getDocumentById, updateTemplateJson } from "@/lib/documents";
 import { inferAssignmentsFromMessage } from "@/lib/chat-helpers";
@@ -19,6 +19,12 @@ export async function POST(
   const { id } = await params;
   const body = (await request.json()) as ChatRequest;
   const messages = body.messages ?? [];
+  const modelMessages = convertToModelMessages(
+    messages.map(({ id: _discarded, ...rest }) => {
+      void _discarded;
+      return rest;
+    })
+  );
   const document = await getDocumentById(id);
 
   if (!document) {
@@ -46,15 +52,25 @@ export async function POST(
     })
     .join("\n");
 
+  const outstandingPlaceholders = updatedTemplate.placeholders.filter((placeholder) => !placeholder.value);
+  const nextPlaceholder = outstandingPlaceholders[0];
+  const nextPlaceholderPrompt = nextPlaceholder
+    ? `Next field to focus on: ${nextPlaceholder.key} (${nextPlaceholder.raw}). Ask specific follow-up questions until you have the exact value.`
+    : "All placeholders appear filled. Double-check the values and confirm the document is ready.";
+
   const stream = await streamText({
     model: openai("gpt-5-mini"),
     system: `${INITIAL_CHAT_INSTRUCTIONS}
 
+You are acting as a calm legal co-pilot for founders, investors, and counsel. Guide the user field-by-field: surface what is still missing, ask targeted questions, and only update the document when you have a precise value. Reference clause names and hint at why each detail matters.
+
+${nextPlaceholderPrompt}
+
 Document placeholder status:
 ${placeholderSummary}
 
-When you still need information, ask one concise follow-up question. When everything is filled, let the user know the document is ready.`,
-    messages: convertToCoreMessages(messages),
+When you still need information, ask one concise follow-up question. After a field is captured, restate what you filled. When everything is filled, let the user know the document is ready and suggest reviewing the preview.`,
+    messages: modelMessages,
   });
 
   return stream.toTextStreamResponse({
