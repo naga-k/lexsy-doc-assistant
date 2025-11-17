@@ -429,6 +429,8 @@ export interface PreviewCardProps {
   isGenerating: boolean;
   generateError: string | null;
   onGenerate: () => void;
+  className?: string;
+  onBackToFill?: () => void;
 }
 
 export function PreviewCard({
@@ -439,23 +441,40 @@ export function PreviewCard({
   isGenerating,
   generateError,
   onGenerate,
+  className,
+  onBackToFill,
 }: PreviewCardProps) {
   return (
-    <section className="rounded-3xl border border-white/15 bg-slate-950/60 p-4 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur sm:p-5">
+    <section
+      className={clsx(
+        "flex h-full flex-col rounded-3xl border border-white/15 bg-slate-950/60 p-4 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur sm:p-5",
+        className
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-white">Preview & export</h2>
-          <p className="text-sm text-slate-300">Replace placeholders inline and download an identical .docx copy.</p>
         </div>
-        <div className="text-right">
-          <p className="text-sm font-medium text-white/80">{completionRatio}% complete</p>
-          <div className="mt-1 h-2 w-36 rounded-full bg-white/10">
-            <div className="h-2 rounded-full bg-indigo-500 transition-all" style={{ width: `${completionRatio}%` }} />
+        <div className="flex flex-wrap items-center gap-3 text-right">
+          <div>
+            <p className="text-sm font-medium text-white/80">{completionRatio}% complete</p>
+            <div className="mt-1 h-2 w-36 rounded-full bg-white/10">
+              <div className="h-2 rounded-full bg-indigo-500 transition-all" style={{ width: `${completionRatio}%` }} />
+            </div>
           </div>
+                    {onBackToFill ? (
+            <button
+              type="button"
+              onClick={onBackToFill}
+              className="inline-flex items-center rounded-full border border-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80 transition hover:border-white/40 hover:text-white"
+            >
+              Back to fill
+            </button>
+          ) : null}
         </div>
       </div>
 
-      <div className="mt-4 max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/60 p-3 text-sm leading-relaxed text-slate-100 sm:p-4">
+      <div className="mt-4 flex-1 min-h-0 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/60 p-3 text-sm leading-relaxed text-slate-100 sm:p-4">
         {!template ? (
           <p className="text-slate-300">
             Upload a template to see its structure here. We render the doc inserting your latest answers so you never lose formatting context.
@@ -492,50 +511,66 @@ export function PreviewCard({
 
 export function PlaceholderTable({ template }: { template: ExtractedTemplate | null }) {
   return (
-    <section className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-slate-900">Placeholder tracker</h3>
-        </div>
-        {template ? (
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-            {template.placeholders.length} fields
-          </span>
-        ) : null}
-      </div>
+    <section className="flex h-full flex-col rounded-3xl border border-white/15 bg-slate-950/60 p-4 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur sm:p-5">
       {!template ? (
-        <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
+          <p className="rounded-xl border border-dashed border-white/20 bg-white/5 p-4 text-center text-sm text-white/70">
           Upload a document to see detected placeholders.
         </p>
       ) : (
         <div className="flex-1 overflow-y-auto">
-          <table className="w-full text-sm text-slate-600">
-            <thead className="text-left text-xs uppercase text-slate-500">
+            <table className="w-full text-sm text-white/80">
+            <thead className="text-left text-xs uppercase text-white/60">
               <tr>
                 <th className="py-2 pr-3">Field</th>
-                <th className="py-2 pr-3">Original token</th>
+                <th className="py-2 pr-3">Original entry</th>
                 <th className="py-2 pr-3">Status</th>
                 <th className="py-2">Type</th>
               </tr>
             </thead>
             <tbody>
               {template.placeholders.map((placeholder) => {
-                const filled = Boolean(placeholder.value);
+                const formattedValue = (() => {
+                  if (typeof placeholder.value === "string") {
+                    return placeholder.value.trim();
+                  }
+                  if (placeholder.value === null || placeholder.value === undefined) {
+                    return "";
+                  }
+                  return String(placeholder.value).trim();
+                })();
+                const filled = formattedValue !== "";
+                const fieldLabel = formatPlaceholderLabel(
+                  placeholder.exampleContext || placeholder.raw || placeholder.key || ""
+                );
+                const currentValue = filled ? formattedValue : "";
+                const displayValue = currentValue ? truncateValue(currentValue) : "";
+                const statusText = filled
+                  ? displayValue || "Provided"
+                  : placeholder.required
+                    ? "Missing"
+                    : "Optional";
+                const originalEntry = placeholder.raw ?? placeholder.exampleContext ?? "—";
+                const statusClasses = clsx(
+                  "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-wide",
+                  filled
+                    ? "bg-indigo-500 text-white shadow-[0_0_0_1px_rgba(99,102,241,0.35)]"
+                    : placeholder.required
+                      ? "bg-rose-600 text-white shadow-[0_0_0_1px_rgba(225,29,72,0.4)]"
+                      : "bg-slate-700 text-slate-100 shadow-[0_0_0_1px_rgba(148,163,184,0.35)]"
+                );
                 return (
-                  <tr key={placeholder.key} className="border-b border-slate-100 last:border-none">
-                    <td className="py-3 pr-3 font-medium text-slate-900">{placeholder.key}</td>
-                    <td className="py-3 pr-3 text-slate-500">{placeholder.raw}</td>
+                    <tr key={placeholder.key} className="border-b border-white/10 last:border-none">
                     <td className="py-3 pr-3">
-                      <span
-                        className={clsx(
-                          "rounded-full px-2 py-0.5 text-xs font-medium",
-                          filled ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-                        )}
-                      >
-                        {filled ? "Filled" : placeholder.required ? "Missing" : "Optional"}
+                        <div className="font-medium text-white">{fieldLabel}</div>
+                        <p className="text-xs text-white/60">{placeholder.key}</p>
+                    </td>
+                      <td className="py-3 pr-3 text-white/70">{originalEntry}</td>
+                    <td className="py-3 pr-3">
+                      <span className={statusClasses} title={filled ? currentValue : undefined}>
+                        {statusText}
                       </span>
                     </td>
-                    <td className="py-3 text-xs uppercase tracking-wide text-slate-500">{placeholder.type}</td>
+                      <td className="py-3 text-xs uppercase tracking-wide text-white/50">{placeholder.type}</td>
                   </tr>
                 );
               })}
@@ -572,19 +607,30 @@ function PreviewBody({ template }: { template: ExtractedTemplate }) {
         }
         const placeholder = placeholderLookup.get(node.key);
         const value = placeholder?.value;
+        const displayValue = typeof value === "string" ? truncateValue(value, 80) : value;
+        const tooltipText = typeof value === "string" && value.trim() !== "" ? value : placeholder?.raw;
         return (
           <span
             key={`placeholder-${node.key}-${index}`}
             className={clsx(
-              "mx-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-              value ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"
+              "mx-1 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+              value
+                ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
+                : "border-amber-400/30 bg-amber-400/10 text-amber-100"
             )}
-            title={placeholder?.raw}
+            title={tooltipText}
           >
-            {value ?? placeholder?.raw ?? node.raw}
+            {displayValue ?? placeholder?.raw ?? node.raw}
           </span>
         );
       })}
     </div>
   );
+}
+
+function truncateValue(value: string, maxLength = 40): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength - 1)}…`;
 }

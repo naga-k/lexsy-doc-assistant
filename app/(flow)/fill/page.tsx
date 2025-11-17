@@ -93,7 +93,7 @@ function FillPageContent() {
       ) : error ? (
         <p className="text-sm text-rose-300">{error}</p>
       ) : (
-        <div className="flex flex-1 min-h-0 flex-col gap-1">
+        <div className="flex flex-1 min-h-0 flex-col gap-2 sm:gap-3">
           <FillTopBar
             activePane={activePane}
             onPaneChange={setActivePane}
@@ -102,7 +102,7 @@ function FillPageContent() {
             completionRatio={completionRatio}
           />
           <div className="grid flex-1 min-h-0 gap-3 lg:grid-cols-[minmax(0,0.6fr)_minmax(0,0.4fr)]">
-            <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+            <div className="flex min-h-0 flex-col gap-3 overflow-hidden p-1 sm:p-2">
               <div className="flex-1 min-h-0 overflow-hidden">
                 {activePane === "document" ? (
                   <DocumentPreviewWindow template={template} />
@@ -111,7 +111,7 @@ function FillPageContent() {
                 )}
               </div>
             </div>
-            <div className="flex min-h-0 flex-col overflow-hidden">
+            <div className="flex min-h-0 flex-col overflow-hidden p-1 sm:p-2">
               <ChatPanel
                 document={document}
                 onTemplateUpdated={handleTemplateUpdated}
@@ -141,7 +141,7 @@ function FillTopBar({
   completionRatio,
 }: FillTopBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300">
+    <div className="flex flex-wrap items-center gap-3 px-1 py-1 text-xs text-slate-300 sm:px-2">
       <div className="inline-flex rounded-full border border-white/15 bg-white/5 p-0.5 text-white/70">
         {(["document", "placeholders"] as Pane[]).map((pane) => (
           <button
