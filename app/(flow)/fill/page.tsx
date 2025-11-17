@@ -50,31 +50,47 @@ export default function FillPage() {
   }, [document]);
 
   return (
-    <div className="space-y-8">
-      <header className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Screen two</p>
-        <h1 className="text-3xl font-semibold text-white">Fill placeholders with context</h1>
-        <p className="text-sm text-slate-300">
-          Keep the document on the left while you answer via chat on the right. We only persist structured
-          values.
-        </p>
-        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-          <span>Document ID: {docId ?? "missing"}</span>
-          {docSummary ? (
-            <span>
-              Filled {docSummary.filled}/{docSummary.total}
-            </span>
-          ) : null}
+    <div className="space-y-10">
+      <section className="rounded-3xl border border-white/15 bg-white/5 px-6 py-8 shadow-[0_35px_90px_rgba(2,6,23,0.65)] backdrop-blur md:px-10">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-4">
+            <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Stage 02 · Fill</p>
+            <div className="space-y-3">
+              <h1 className="text-4xl font-semibold text-white">Answer once while the template stays pinned.</h1>
+              <p className="text-base text-slate-200">
+                This is the same dual-column workspace from lexsy.ai: document on the left, guided chat on the right.
+                Every reply instantly syncs placeholders so legal, sales, and finance see the same truth.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-4 text-sm text-slate-200 sm:grid-cols-2 lg:max-w-sm">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p className="text-[11px] uppercase tracking-[0.4em] text-indigo-200">Document ID</p>
+              <p className="mt-2 break-all text-base font-semibold text-white">{docId ?? "Add ?docId=..."}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p className="text-[11px] uppercase tracking-[0.4em] text-indigo-200">Progress</p>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {docSummary ? `${docSummary.filled}/${docSummary.total}` : "—"}
+              </p>
+              <p className="text-xs text-slate-400">Filled placeholders</p>
+            </div>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-slate-300">
+          <span className="rounded-full border border-white/10 px-3 py-1 text-white/70">
+            Structured values only
+          </span>
           <button
             type="button"
             onClick={() => router.push("/preview" + (docId ? `?docId=${docId}` : ""))}
-            className="rounded-full border border-white/30 px-3 py-1 text-white/80 transition hover:text-white"
+            className="rounded-full border border-white/30 px-4 py-1.5 text-white/80 transition hover:text-white"
             disabled={!docId}
           >
             Jump to preview
           </button>
         </div>
-      </header>
+      </section>
 
       {!docId ? (
         <MissingDocState />
@@ -97,7 +113,7 @@ export default function FillPage() {
 
 function MissingDocState() {
   return (
-    <div className="rounded-2xl border border-dashed border-white/20 bg-white/5 p-6 text-sm text-slate-300">
+    <div className="rounded-3xl border border-dashed border-white/25 bg-white/5 p-6 text-sm text-slate-300">
       Provide a <code className="text-white">docId</code> query parameter, e.g. <span className="font-semibold">/fill?docId=&lt;id&gt;</span>.
       You can obtain one from the upload screen.
     </div>

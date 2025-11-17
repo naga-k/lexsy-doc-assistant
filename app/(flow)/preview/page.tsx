@@ -1,5 +1,6 @@
 'use client';
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
@@ -64,15 +65,42 @@ export default function PreviewPage() {
   }, [docId]);
 
   return (
-    <div className="space-y-8">
-      <header className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Screen three</p>
-        <h1 className="text-3xl font-semibold text-white">Preview & export</h1>
-        <p className="text-sm text-slate-300">
-          Generate a fresh filled document and download it when everything looks right.
-        </p>
-        <p className="text-xs text-slate-500">Document ID: {docId ?? "missing"}</p>
-      </header>
+    <div className="space-y-10">
+      <section className="rounded-3xl border border-white/15 bg-white/5 px-6 py-8 shadow-[0_35px_90px_rgba(2,6,23,0.65)] backdrop-blur md:px-10">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-4">
+            <p className="text-xs uppercase tracking-[0.4em] text-indigo-200">Stage 03 · Preview & export</p>
+            <div className="space-y-3">
+              <h1 className="text-4xl font-semibold text-white">Ship the finished .docx right from here.</h1>
+              <p className="text-base text-slate-200">
+                Lexsy replays your structured answers into the original layout. Generate a clean copy and share the download link without leaving this flow.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-4 text-sm text-slate-200 sm:grid-cols-2 lg:max-w-sm">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p className="text-[11px] uppercase tracking-[0.4em] text-indigo-200">Document ID</p>
+              <p className="mt-2 break-all text-base font-semibold text-white">{docId ?? "Add ?docId=..."}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p className="text-[11px] uppercase tracking-[0.4em] text-indigo-200">Completion</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{template ? `${completionRatio}%` : "—"}</p>
+              <p className="text-xs text-slate-400">Required placeholders filled</p>
+            </div>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-slate-300">
+          <span className="rounded-full border border-white/10 px-3 py-1 text-white/70">
+            {templateReady ? "Ready to export" : "Fill placeholders to unlock export"}
+          </span>
+          <Link
+            href={docId ? `/fill?docId=${docId}` : "/fill"}
+            className="rounded-full border border-white/30 px-4 py-1.5 text-white/80 transition hover:text-white"
+          >
+            Review in Fill screen
+          </Link>
+        </div>
+      </section>
 
       {!docId ? (
         <MissingDocState />
@@ -97,7 +125,7 @@ export default function PreviewPage() {
 
 function MissingDocState() {
   return (
-    <div className="rounded-2xl border border-dashed border-white/20 bg-white/5 p-6 text-sm text-slate-300">
+    <div className="rounded-3xl border border-dashed border-white/25 bg-white/5 p-6 text-sm text-slate-300">
       Provide a <code className="text-white">docId</code> query parameter first. Use the upload page to create one.
     </div>
   );
