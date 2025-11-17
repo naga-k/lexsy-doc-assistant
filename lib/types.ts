@@ -1,0 +1,110 @@
+import { z } from "zod";
+
+export const placeholderValueTypeSchema = z.enum([
+  "STRING",
+  "NUMBER",
+  "DATE",
+  "PERCENT",
+  "MONEY",
+  "UNKNOWN",
+]);
+
+export type PlaceholderValueType = z.infer<typeof placeholderValueTypeSchema>;
+
+const rawTextNodeSchema = z.object({
+  type: z.literal("text"),
+  content: z.string().optional(),
+  text: z.string().optional(),
+});
+
+const rawPlaceholderNodeSchema = z.object({
+  type: z.literal("placeholder"),
+  key: z.string(),
+  raw: z.string().optional(),
+});
+
+export const rawDocAstNodeSchema = z.union([rawTextNodeSchema, rawPlaceholderNodeSchema]);
+
+export type DocAstNode =
+  | {
+      type: "text";
+      content: string;
+    }
+  | {
+      type: "placeholder";
+      key: string;
+      raw: string;
+    };
+
+const rawPlaceholderSchema = z.object({
+  key: z.string(),
+  raw: z.string().optional(),
+  exampleContext: z.string().optional(),
+  type: placeholderValueTypeSchema,
+  required: z.boolean().optional(),
+  value: z.string().nullable().optional(),
+});
+
+export type Placeholder = {
+  key: string;
+  raw: string;
+  exampleContext: string;
+  type: PlaceholderValueType;
+  required: boolean;
+  value?: string | null;
+};
+
+export const extractedTemplateSchema = z.object({
+  docAst: z.array(rawDocAstNodeSchema),
+  placeholders: z.array(rawPlaceholderSchema),
+});
+
+export type RawExtractedTemplate = z.infer<typeof extractedTemplateSchema>;
+
+export interface ExtractedTemplate {
+  docAst: DocAstNode[];
+  placeholders: Placeholder[];
+}
+
+export function normalizeExtractedTemplate(raw: RawExtractedTemplate): ExtractedTemplate {
+  return {
+    docAst: raw.docAst.map((node) => {
+      if (node.type === "text") {
+        return {
+          type: "text" as const,
+          content: sanitizeDocString(node.content ?? node.text ?? ""),
+        };
+      }
+      return {
+        type: "placeholder" as const,
+        key: node.key,
+        raw: sanitizeDocString(node.raw ?? node.key),
+      };
+    }),
+    placeholders: raw.placeholders.map((placeholder) => ({
+      key: placeholder.key,
+      raw: sanitizeDocString(placeholder.raw ?? placeholder.key),
+      exampleContext: sanitizeDocString(placeholder.exampleContext ?? ""),
+      type: placeholder.type,
+      required: placeholder.required ?? true,
+      value: placeholder.value ? sanitizeDocString(placeholder.value) : null,
+    })),
+  };
+}
+
+function sanitizeDocString(value: string): string {
+  return value.replace(/\u0000/g, "");
+}
+
+export interface DocumentRecord {
+  id: string;
+  filename: string;
+  mime_type: string;
+  original_blob_url: string;
+  filled_blob_url: string | null;
+  template_json: ExtractedTemplate;
+  created_at: string;
+}
+
+export const INITIAL_CHAT_INSTRUCTIONS =
+  "You are Lexsy, an assistant who helps fill legal document placeholders accurately and concisely.";
