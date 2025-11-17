@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
 import { generateDocument, requestDocument } from "@/lib/client-documents";
@@ -8,6 +8,14 @@ import { PreviewCard } from "@/components/workflow";
 import { isTemplateComplete } from "@/lib/templates";
 
 export default function PreviewPage() {
+  return (
+    <Suspense fallback={<PreviewPageFallback />}>
+      <PreviewPageContent />
+    </Suspense>
+  );
+}
+
+function PreviewPageContent() {
   const searchParams = useSearchParams();
   const docId = searchParams.get("docId");
   const [document, setDocument] = useState<DocumentRecord | null>(null);
@@ -91,6 +99,15 @@ export default function PreviewPage() {
           onGenerate={handleGenerate}
         />
       )}
+    </div>
+  );
+}
+
+function PreviewPageFallback() {
+  return (
+    <div className="space-y-4">
+      <div className="h-6 w-32 animate-pulse rounded-full bg-white/20" />
+      <div className="h-48 animate-pulse rounded-3xl border border-white/10 bg-white/5" />
     </div>
   );
 }
