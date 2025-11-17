@@ -5,19 +5,22 @@ const screens = [
     title: "Upload",
     description: "Send a .docx to Lexsy and we extract placeholders in seconds.",
     href: "/upload",
-    badge: "Screen 1",
+    badge: "Step 1",
+    locked: false,
   },
   {
     title: "Fill",
     description: "Chat through missing fields while comparing the live template.",
     href: "/fill",
-    badge: "Screen 2",
+    badge: "Step 2",
+    locked: true,
   },
   {
     title: "Preview & export",
     description: "Generate the filled copy and download the latest .docx.",
     href: "/preview",
-    badge: "Screen 3",
+    badge: "Step 3",
+    locked: true,
   },
 ];
 
@@ -54,21 +57,44 @@ export default function HomePage() {
           </div>
 
           <div className="grid gap-6 md:grid-cols-3">
-            {screens.map((screen) => (
-              <Link
-                key={screen.href}
-                href={screen.href}
-                className="rounded-2xl border border-white/15 bg-white/5 p-5 transition hover:border-white/40"
-              >
-                <p className="text-xs uppercase tracking-[0.3em] text-indigo-200">{screen.badge}</p>
-                <h2 className="mt-3 text-2xl font-semibold text-white">{screen.title}</h2>
-                <p className="mt-2 text-sm text-slate-300">{screen.description}</p>
-                <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-white">
-                  Enter {screen.title}
-                  <span aria-hidden="true">→</span>
-                </span>
-              </Link>
-            ))}
+            {screens.map((screen) => {
+              const baseClasses = "rounded-2xl border border-white/15 bg-white/5 p-5 transition";
+              const stateClasses = screen.locked
+                ? "cursor-not-allowed border-white/10 opacity-70"
+                : "hover:border-white/40";
+              const content = (
+                <>
+                  <p className="text-xs uppercase tracking-[0.3em] text-indigo-200">{screen.badge}</p>
+                  <h2 className="mt-3 text-2xl font-semibold text-white">{screen.title}</h2>
+                  <p className="mt-2 text-sm text-slate-300">{screen.description}</p>
+                  {screen.locked ? (
+                    <span className="mt-6 inline-flex text-sm font-semibold text-white/60">
+                      Complete Step 1 first
+                    </span>
+                  ) : (
+                    <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-white">
+                      Enter {screen.title}
+                      <span aria-hidden="true">→</span>
+                    </span>
+                  )}
+                </>
+              );
+
+              return screen.locked ? (
+                <div
+                  key={screen.href}
+                  role="link"
+                  aria-disabled
+                  className={`${baseClasses} ${stateClasses}`}
+                >
+                  {content}
+                </div>
+              ) : (
+                <Link key={screen.href} href={screen.href} className={`${baseClasses} ${stateClasses}`}>
+                  {content}
+                </Link>
+              );
+            })}
           </div>
         </section>
       </main>
