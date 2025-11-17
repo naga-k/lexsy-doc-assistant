@@ -24,7 +24,6 @@ import {
   PromptInputSubmit,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
-import { Suggestions, Suggestion } from "@/components/ai-elements/suggestion";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
 
 export interface UploadCardProps {
@@ -33,9 +32,17 @@ export interface UploadCardProps {
   error: string | null;
   onFileSelected: (file: File | null) => void;
   variant?: "default" | "hero";
+  showDetails?: boolean;
 }
 
-export function UploadCard({ document, uploading, error, onFileSelected, variant = "default" }: UploadCardProps) {
+export function UploadCard({
+  document,
+  uploading,
+  error,
+  onFileSelected,
+  variant = "default",
+  showDetails = true,
+}: UploadCardProps) {
   const isHero = variant === "hero";
   const containerClasses = clsx(
     "p-6",
@@ -49,7 +56,8 @@ export function UploadCard({ document, uploading, error, onFileSelected, variant
     ? "rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80"
     : "rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700";
   const dropzoneClasses = clsx(
-    "mt-5 flex flex-col gap-3 rounded-xl border border-dashed p-5 text-sm",
+    "flex flex-col gap-3 rounded-xl border border-dashed p-5 text-sm",
+    showDetails ? "mt-5" : "",
     isHero
       ? "border-white/30 bg-white/5 text-slate-200"
       : "border-slate-300 bg-slate-50/60 text-slate-600"
@@ -60,15 +68,17 @@ export function UploadCard({ document, uploading, error, onFileSelected, variant
 
   return (
     <section className={containerClasses}>
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className={clsx("text-lg font-semibold", headingClass)}>Upload template</h2>
-          <p className={clsx("text-sm", bodyClass)}>
-            We store the original template privately and keep formatting intact.
-          </p>
+      {showDetails ? (
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className={clsx("text-lg font-semibold", headingClass)}>Upload template</h2>
+            <p className={clsx("text-sm", bodyClass)}>
+              We store the original template privately and keep formatting intact.
+            </p>
+          </div>
+          {document ? <span className={badgeClass}>{document.filename}</span> : null}
         </div>
-        {document ? <span className={badgeClass}>{document.filename}</span> : null}
-      </div>
+      ) : null}
       <div className={dropzoneClasses}>
         <p>
           Drag & drop a .docx file or{" "}
@@ -118,9 +128,6 @@ export function ChatPanel({ document, onTemplateUpdated, showHeader = true }: Ch
               Lexsy guides missing fields and syncs placeholders while you chat with our AI and legal team.
             </p>
           </div>
-          <span className="rounded-full border border-white/30 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-slate-300">
-            AI + human
-          </span>
         </div>
       ) : (
         <div className="mb-4">
@@ -169,11 +176,6 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
     },
   });
 
-  const suggestionPresets = useMemo(
-    () => ["Fill the missing share price", "Summarize investor terms", "What's left before download?"],
-    []
-  );
-
   const handlePromptSubmit = useCallback(
     async ({ text }: PromptInputMessage) => {
       const value = text.trim();
@@ -221,17 +223,6 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
           <ConversationScrollButton className="bg-white/10 text-white hover:bg-white/20" />
         </Conversation>
       </div>
-      <Suggestions className="px-2">
-        {suggestionPresets.map((suggestion) => (
-          <Suggestion
-            key={suggestion}
-            suggestion={suggestion}
-            onClick={handleSuggestion}
-            variant="ghost"
-            className="border border-white/15 text-white/80 hover:text-white"
-          />
-        ))}
-      </Suggestions>
       <PromptInput
         onSubmit={handlePromptSubmit}
         className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur"
@@ -246,11 +237,7 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
           <PromptInputTools>
             {error ? (
               <span className="text-xs text-rose-200">{error.message}</span>
-            ) : (
-              <span className="text-xs text-slate-300">
-                Structured values only—Lexsy never stores your transcript.
-              </span>
-            )}
+            ) : null}
           </PromptInputTools>
           <PromptInputSubmit
             status={status}
