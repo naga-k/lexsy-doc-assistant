@@ -85,7 +85,7 @@ function FillPageContent() {
   }, [docId, router]);
 
   return (
-    <div className="flex min-h-screen flex-col gap-1 px-2 py-4 sm:px-4 lg:px-5">
+    <div className="flex h-screen min-h-0 flex-col gap-1 overflow-hidden px-2 py-4 sm:px-4 lg:px-5">
       {!docId ? (
         <MissingDocState />
       ) : loading ? (
@@ -93,7 +93,7 @@ function FillPageContent() {
       ) : error ? (
         <p className="text-sm text-rose-300">{error}</p>
       ) : (
-        <div className="flex flex-1 flex-col gap-1">
+        <div className="flex flex-1 min-h-0 flex-col gap-1">
           <FillTopBar
             activePane={activePane}
             onPaneChange={setActivePane}
@@ -102,8 +102,8 @@ function FillPageContent() {
             completionRatio={completionRatio}
           />
           <div className="grid flex-1 min-h-0 gap-3 lg:grid-cols-[minmax(0,0.6fr)_minmax(0,0.4fr)]">
-            <div className="flex min-h-0 flex-col gap-3">
-              <div className="flex-1 min-h-0">
+            <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-hidden">
                 {activePane === "document" ? (
                   <DocumentPreviewWindow template={template} />
                 ) : (
@@ -111,8 +111,12 @@ function FillPageContent() {
                 )}
               </div>
             </div>
-            <div className="min-h-0">
-              <ChatPanel document={document} onTemplateUpdated={handleTemplateUpdated} />
+            <div className="flex min-h-0 flex-col overflow-hidden">
+              <ChatPanel
+                document={document}
+                onTemplateUpdated={handleTemplateUpdated}
+                className="h-full min-h-0 overflow-hidden"
+              />
             </div>
           </div>
         </div>

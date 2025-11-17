@@ -116,11 +116,17 @@ export function UploadCard({
 export interface ChatPanelProps {
   document: DocumentRecord | null;
   onTemplateUpdated: () => void;
+  className?: string;
 }
 
-export function ChatPanel({ document, onTemplateUpdated }: ChatPanelProps) {
+export function ChatPanel({ document, onTemplateUpdated, className }: ChatPanelProps) {
   return (
-    <section className="flex min-h-[460px] flex-col rounded-3xl border border-white/15 bg-slate-950/60 p-4 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur sm:p-5">
+    <section
+      className={clsx(
+        "flex min-h-[460px] flex-col overflow-hidden rounded-3xl border border-white/15 bg-slate-950/60 p-4 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur sm:p-5",
+        className
+      )}
+    >
       {!document ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-slate-900/60 px-5 py-4 text-center text-sm text-slate-300">
           Upload a .docx template to unlock the chat experience.
@@ -258,9 +264,9 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
   }, [document.filename, isBusy, messages, nextPlaceholder, outstandingCount, setMessages]);
 
   return (
-    <div className="flex flex-1 flex-col gap-3 text-white">
+    <div className="flex flex-1 min-h-0 flex-col gap-3 text-white">
       <div className="relative flex-1 overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60">
-        <Conversation className="h-full">
+        <Conversation className="flex h-full flex-col">
           {messages.length === 0 ? (
             <ConversationEmptyState>
               <div className="space-y-1 text-center">
@@ -490,7 +496,6 @@ export function PlaceholderTable({ template }: { template: ExtractedTemplate | n
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h3 className="text-base font-semibold text-slate-900">Placeholder tracker</h3>
-          <p className="text-sm text-slate-500">Everything the document expects, in one checklist.</p>
         </div>
         {template ? (
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
