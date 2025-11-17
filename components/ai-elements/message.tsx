@@ -30,8 +30,8 @@ export type MessageProps = HTMLAttributes<HTMLDivElement> & {
 export const Message = ({ className, from, ...props }: MessageProps) => (
   <div
     className={cn(
-      "group flex w-full max-w-[80%] flex-col gap-2",
-      from === "user" ? "is-user ml-auto justify-end" : "is-assistant",
+      "group flex w-full max-w-[min(640px,85%)] flex-col gap-3 text-sm leading-relaxed",
+      from === "user" ? "is-user ml-auto items-end text-right" : "is-assistant items-start text-left",
       className
     )}
     {...props}
@@ -47,9 +47,9 @@ export const MessageContent = ({
 }: MessageContentProps) => (
   <div
     className={cn(
-      "is-user:dark flex w-fit flex-col gap-2 overflow-hidden text-sm",
-      "group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
-      "group-[.is-assistant]:text-foreground",
+      "is-user:dark flex w-fit max-w-full flex-col gap-2 overflow-hidden rounded-[22px] px-4 py-3 text-sm leading-relaxed shadow-sm transition break-words",
+      "group-[.is-user]:ml-auto group-[.is-user]:rounded-br-xl group-[.is-user]:bg-gradient-to-br group-[.is-user]:from-indigo-500/95 group-[.is-user]:to-indigo-400/80 group-[.is-user]:text-white group-[.is-user]:shadow-[0_12px_30px_rgba(79,70,229,0.35)]",
+      "group-[.is-assistant]:rounded-bl-xl group-[.is-assistant]:bg-white/5 group-[.is-assistant]:text-white/90 group-[.is-assistant]:ring-1 group-[.is-assistant]:ring-white/10 group-[.is-assistant]:backdrop-blur-sm",
       className
     )}
     {...props}

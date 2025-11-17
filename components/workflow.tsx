@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
+import { ArrowUpRightIcon } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -15,12 +16,10 @@ import {
   MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message";
+import { Loader } from "@/components/ai-elements/loader";
 import {
   PromptInput,
-  PromptInputBody,
   PromptInputTextarea,
-  PromptInputFooter,
-  PromptInputTools,
   PromptInputSubmit,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
@@ -123,13 +122,13 @@ export function ChatPanel({ document, onTemplateUpdated, className }: ChatPanelP
   return (
     <section
       className={clsx(
-        "flex min-h-[460px] flex-col overflow-hidden rounded-3xl border border-white/15 bg-slate-950/60 p-4 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur sm:p-5",
+        "flex min-h-0 flex-col overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-b from-slate-950/80 via-slate-950/60 to-slate-950/80 text-white shadow-[0_35px_80px_rgba(2,6,23,0.65)] backdrop-blur-lg",
         className
       )}
     >
       {!document ? (
-        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-slate-900/60 px-5 py-4 text-center text-sm text-slate-300">
-          Upload a .docx template to unlock the chat experience.
+        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-slate-900/60 px-6 py-5 text-center text-sm text-slate-300">
+          Upload a .docx template to unlock live chat with Lexsy&apos;s legal assistant.
         </div>
       ) : (
         <ActiveChatPanel document={document} onTemplateUpdated={onTemplateUpdated} />
@@ -168,14 +167,16 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
   });
 
   const storageKey = useMemo(() => `lexsy-chat-${document.id}`, [document.id]);
-  const hasHydratedMessages = useRef(false);
+  const [hasHydratedMessages, setHasHydratedMessages] = useState(false);
+  const [hasSeededIntro, setHasSeededIntro] = useState(false);
 
   useEffect(() => {
-    hasHydratedMessages.current = false;
+    setHasHydratedMessages(false);
+    setHasSeededIntro(false);
   }, [storageKey]);
 
   useEffect(() => {
-    if (hasHydratedMessages.current) return;
+    if (hasHydratedMessages) return;
     if (typeof window === "undefined") return;
     try {
       const stored = window.sessionStorage.getItem(storageKey);
@@ -188,19 +189,19 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
     } catch (storageError) {
       console.warn("Unable to hydrate chat history", storageError);
     } finally {
-      hasHydratedMessages.current = true;
+      setHasHydratedMessages(true);
     }
-  }, [setMessages, storageKey]);
+  }, [hasHydratedMessages, setMessages, storageKey]);
 
   useEffect(() => {
-    if (!hasHydratedMessages.current) return;
+    if (!hasHydratedMessages) return;
     if (typeof window === "undefined") return;
     try {
       window.sessionStorage.setItem(storageKey, JSON.stringify(messages));
     } catch (storageError) {
       console.warn("Unable to persist chat history", storageError);
     }
-  }, [messages, storageKey]);
+  }, [hasHydratedMessages, messages, storageKey]);
 
   const handlePromptSubmit = useCallback(
     async ({ text }: PromptInputMessage) => {
@@ -239,8 +240,29 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
 
   const outstandingCount = Math.max(placeholderStats.total - placeholderStats.filled, 0);
   const nextPlaceholder = placeholderStats.next;
+
   useEffect(() => {
-    if (!hasHydratedMessages.current) return;
+    if (!hasHydratedMessages || hasSeededIntro) return;
+    if (messages.length === 0) {
+      setMessages([
+        buildIntroMessage({
+          documentTitle: document.filename,
+          outstandingCount,
+        }),
+      ]);
+    }
+    setHasSeededIntro(true);
+  }, [
+    document.filename,
+    hasHydratedMessages,
+    hasSeededIntro,
+    messages.length,
+    outstandingCount,
+    setMessages,
+  ]);
+
+  useEffect(() => {
+    if (!hasHydratedMessages) return;
     if (!nextPlaceholder) return;
     if (isBusy) return;
 
@@ -261,61 +283,104 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
       }
       return prev.concat(guidanceMessage);
     });
-  }, [document.filename, isBusy, messages, nextPlaceholder, outstandingCount, setMessages]);
+  }, [
+    document.filename,
+    hasHydratedMessages,
+    isBusy,
+    messages,
+    nextPlaceholder,
+    outstandingCount,
+    setMessages,
+  ]);
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col gap-3 text-white">
-      <div className="relative flex-1 overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60">
-        <Conversation className="flex h-full flex-col">
-          {messages.length === 0 ? (
-            <ConversationEmptyState>
-              <div className="space-y-1 text-center">
-                <h2 className="text-lg font-semibold text-white">Fill via chat</h2>
-                <p className="text-sm text-slate-300">
-                  Lexsy guides missing fields and syncs placeholders while you chat with our AI and legal team.
-                </p>
-              </div>
-            </ConversationEmptyState>
-          ) : (
-            <ConversationContent>
-              {messages.map((message, index) => (
-                <ChatMessage key={message.id ?? `${message.role}-${index}`} from={message.role}>
-                  <MessageContent className="bg-transparent text-sm text-slate-50">
-                    <MessageResponse>{renderMessageText(message)}</MessageResponse>
-                  </MessageContent>
-                </ChatMessage>
-              ))}
-            </ConversationContent>
-          )}
-          <ConversationScrollButton className="bg-white/10 text-white hover:bg-white/20" />
-        </Conversation>
-      </div>
-
-      <PromptInput
-        onSubmit={handlePromptSubmit}
-        className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur"
-      >
-        <PromptInputBody>
-          <PromptInputTextarea
-            placeholder="Answer Lexsy here..."
-            className="border-none bg-transparent text-sm text-white placeholder:text-slate-400"
-          />
-        </PromptInputBody>
-        <PromptInputFooter className="items-center">
-          <PromptInputTools className="flex flex-wrap items-center gap-2">
-            {error ? <span className="text-xs text-rose-200">{error.message}</span> : null}
-          </PromptInputTools>
-          <PromptInputSubmit
-            status={status}
-            className="rounded-full bg-indigo-500 px-5 text-sm font-semibold text-white hover:bg-indigo-400"
-            disabled={isBusy}
+    <div className="flex flex-1 min-h-0 flex-col text-white">
+      <div className="relative flex min-h-0 flex-1 flex-col rounded-[32px] border border-white/10 bg-slate-950/40">
+        <div className="relative flex-1 min-h-0 overflow-hidden">
+          {isBusy ? (
+            <div className="pointer-events-none absolute left-1/2 top-4 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-slate-950/90 px-3 py-1 text-xs font-medium text-white/80 shadow-xl">
+              <Loader size={14} className="text-indigo-200" />
+              <span>Lexsy is drafting</span>
+            </div>
+          ) : null}
+          <Conversation className="flex flex-1 flex-col overflow-x-hidden">
+            {messages.length === 0 ? (
+              <ConversationEmptyState className="px-8 text-white/80">
+                <div className="space-y-2 text-center">
+                  <h2 className="text-lg font-semibold text-white">Lexsy is getting oriented</h2>
+                  <p className="text-sm text-slate-200">
+                    I’ll open with guidance based on your template and keep everything synced automatically.
+                  </p>
+                </div>
+              </ConversationEmptyState>
+            ) : (
+              <ConversationContent className="gap-5 p-5 sm:p-7">
+                {messages.map((message, index) => (
+                  <ChatMessage key={message.id ?? `${message.role}-${index}`} from={message.role}>
+                    <MessageContent>
+                      <MessageResponse>{renderMessageText(message)}</MessageResponse>
+                    </MessageContent>
+                  </ChatMessage>
+                ))}
+              </ConversationContent>
+            )}
+            <ConversationScrollButton className="bg-white/10 text-white shadow-lg hover:bg-white/20" />
+          </Conversation>
+        </div>
+        <div className="border-t border-white/10 bg-slate-950/60 px-0 py-0">
+          <PromptInput
+            onSubmit={handlePromptSubmit}
+            className="[&_[data-slot=input-group]]:rounded-[12px] [&_[data-slot=input-group]]:border [&_[data-slot=input-group]]:border-white/12 [&_[data-slot=input-group]]:bg-white/5"
           >
-            {isBusy ? "Sending" : "Send"}
-          </PromptInputSubmit>
-        </PromptInputFooter>
-      </PromptInput>
+            <PromptInputTextarea
+              placeholder="Send a message to Lexsy…"
+              className="h-11 flex-1 border-none bg-transparent !px-0 !py-0 text-left text-sm leading-[44px] text-white placeholder:text-white/60"
+            />
+            <PromptInputSubmit
+              status={status}
+              className="flex size-11 items-center justify-center rounded-full bg-indigo-500 text-white transition hover:bg-indigo-400 disabled:opacity-70"
+              disabled={isBusy}
+              size="icon-sm"
+            >
+              {isBusy ? (
+                <Loader size={14} className="text-white" />
+              ) : (
+                <ArrowUpRightIcon className="size-4" />
+              )}
+            </PromptInputSubmit>
+          </PromptInput>
+          {error ? <p className="mt-2 text-xs text-rose-200">{error.message}</p> : null}
+        </div>
+      </div>
     </div>
   );
+}
+
+const INTRO_MESSAGE_ID = "lexsy-intro";
+
+interface IntroMessageConfig {
+  documentTitle: string;
+  outstandingCount: number;
+}
+
+function buildIntroMessage({
+  documentTitle,
+  outstandingCount,
+}: IntroMessageConfig): UIMessage {
+  const remainingCopy =
+    outstandingCount > 0
+      ? `We still have ${outstandingCount} placeholder${outstandingCount === 1 ? "" : "s"} to lock down.`
+      : "All placeholders are filled, so we can focus on polish, risk review, or summaries.";
+  return {
+    id: INTRO_MESSAGE_ID,
+    role: "assistant",
+    parts: [
+      {
+        type: "text",
+        text: `Hi, I'm Lexsy, your legal drafting copilot. I'll lead this working session for ${documentTitle}. ${remainingCopy} Tell me what you'd like to tackle first and I'll take the next step.`,
+      },
+    ],
+  } as UIMessage;
 }
 
 function getPlaceholderDisplayName(placeholder: Placeholder | null | undefined): string {
