@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
 import { requestDocument } from "@/lib/client-documents";
 import { ChatPanel, DocumentPreviewWindow, PlaceholderTable } from "@/components/workflow";
 import clsx from "clsx";
 import { useFlowSession } from "../flow-session-context";
+import { getTemplateCompletionRatio } from "@/lib/templates";
 
 type Pane = "document" | "placeholders";
 
@@ -29,6 +30,7 @@ function FillPageContent() {
   const { setDocId: setActiveDocId, setIsDirty } = useFlowSession();
 
   const template: ExtractedTemplate | null = document?.template_json ?? null;
+  const completionRatio = useMemo(() => getTemplateCompletionRatio(template), [template]);
 
   const loadDocument = useCallback(
     async (options?: { background?: boolean }) => {
@@ -83,8 +85,7 @@ function FillPageContent() {
   }, [docId, router]);
 
   return (
-    <div >
-
+    <div className="flex min-h-screen flex-col gap-1 px-2 py-4 sm:px-4 lg:px-5">
       {!docId ? (
         <MissingDocState />
       ) : loading ? (
@@ -92,24 +93,25 @@ function FillPageContent() {
       ) : error ? (
         <p className="text-sm text-rose-300">{error}</p>
       ) : (
-        <div className="border-white/10 bg-slate-950/40 p-4 sm:p-5 shadow-lg">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,0.6fr)_minmax(0,0.4fr)]">
-            <div className="space-y-4">
-              <FillHeader
-                activePane={activePane}
-                onPaneChange={setActivePane}
-                onJumpToPreview={handleJumpToPreview}
-                previewDisabled={!docId}
-              />
-
-              {activePane === "document" ? (
-                <DocumentPreviewWindow template={template} />
-              ) : (
-                <PlaceholderTable template={template} />
-              )}
+        <div className="flex flex-1 flex-col gap-1">
+          <FillTopBar
+            activePane={activePane}
+            onPaneChange={setActivePane}
+            onJumpToPreview={handleJumpToPreview}
+            previewDisabled={!docId}
+            completionRatio={completionRatio}
+          />
+          <div className="grid flex-1 min-h-0 gap-3 lg:grid-cols-[minmax(0,0.6fr)_minmax(0,0.4fr)]">
+            <div className="flex min-h-0 flex-col gap-3">
+              <div className="flex-1 min-h-0">
+                {activePane === "document" ? (
+                  <DocumentPreviewWindow template={template} />
+                ) : (
+                  <PlaceholderTable template={template} />
+                )}
+              </div>
             </div>
-
-            <div className="lg:self-start lg:sticky lg:top-6">
+            <div className="min-h-0">
               <ChatPanel document={document} onTemplateUpdated={handleTemplateUpdated} />
             </div>
           </div>
@@ -119,21 +121,23 @@ function FillPageContent() {
   );
 }
 
-type FillHeaderProps = {
+type FillTopBarProps = {
   activePane: Pane;
   onPaneChange: (pane: Pane) => void;
   onJumpToPreview: () => void;
   previewDisabled: boolean;
+  completionRatio: number;
 };
 
-function FillHeader({
+function FillTopBar({
   activePane,
   onPaneChange,
   onJumpToPreview,
   previewDisabled,
-}: FillHeaderProps) {
+  completionRatio,
+}: FillTopBarProps) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300">
       <div className="inline-flex rounded-full border border-white/15 bg-white/5 p-0.5 text-white/70">
         {(["document", "placeholders"] as Pane[]).map((pane) => (
           <button
@@ -150,6 +154,15 @@ function FillHeader({
             {pane === "document" ? "Document" : "Placeholders"}
           </button>
         ))}
+      </div>
+      <div className="flex flex-1 items-center gap-2 text-[11px] text-white/70 min-w-[140px]">
+        <div className="h-1 flex-1 rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-indigo-500 transition-all"
+            style={{ width: `${completionRatio}%` }}
+          />
+        </div>
+        <span className="font-semibold tabular-nums">{completionRatio}%</span>
       </div>
       <button
         type="button"

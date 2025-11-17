@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
 import { generateDocument, requestDocument } from "@/lib/client-documents";
 import { PreviewCard } from "@/components/workflow";
-import { isTemplateComplete } from "@/lib/templates";
+import { getTemplateCompletionRatio, isTemplateComplete } from "@/lib/templates";
 
 export default function PreviewPage() {
   return (
@@ -48,12 +48,7 @@ function PreviewPageContent() {
     }
   }, [docId, loadDocument]);
 
-  const completionRatio = useMemo(() => {
-    const placeholders = template?.placeholders.filter((ph) => ph.required) ?? [];
-    if (placeholders.length === 0) return 0;
-    const filled = placeholders.filter((ph) => Boolean(ph.value)).length;
-    return Math.round((filled / placeholders.length) * 100);
-  }, [template]);
+  const completionRatio = useMemo(() => getTemplateCompletionRatio(template), [template]);
 
   const templateReady = template ? isTemplateComplete(template) : false;
 

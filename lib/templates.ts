@@ -35,3 +35,19 @@ export function placeholderMap(template: ExtractedTemplate): Record<string, Plac
     return map;
   }, {});
 }
+
+export function getTemplateCompletionRatio(template: ExtractedTemplate | null | undefined): number {
+  if (!template) {
+    return 0;
+  }
+
+  const requiredPlaceholders = template.placeholders.filter((placeholder) => placeholder.required);
+  if (requiredPlaceholders.length === 0) {
+    return 0;
+  }
+
+  const filled = requiredPlaceholders.filter((placeholder) => Boolean(placeholder.value)).length;
+  const ratio = Math.round((filled / requiredPlaceholders.length) * 100);
+
+  return Math.max(0, Math.min(100, ratio));
+}

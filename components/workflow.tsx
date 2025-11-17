@@ -401,8 +401,8 @@ function renderMessageText(message: UIMessage): string {
 
 export function DocumentPreviewWindow({ template }: { template: ExtractedTemplate | null }) {
   return (
-    <section className="border border-white/10 bg-slate-950/60 p-3 text-sm text-slate-100 sm:p-4">
-      <div className="max-h-72 overflow-y-auto border border-white/10 bg-slate-900/60 p-3 leading-relaxed sm:p-4">
+    <section className="flex h-full flex-col border border-white/10 bg-slate-950/60 p-3 text-sm text-slate-100 sm:p-4">
+      <div className="flex-1 overflow-y-auto border border-white/10 bg-slate-900/60 p-3 leading-relaxed sm:p-4">
         {!template ? (
           <p className="text-slate-400">
             Upload a template to see a live preview. Lexsy keeps the AST representation visible while you fill fields.
@@ -486,7 +486,7 @@ export function PreviewCard({
 
 export function PlaceholderTable({ template }: { template: ExtractedTemplate | null }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <section className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h3 className="text-base font-semibold text-slate-900">Placeholder tracker</h3>
@@ -503,7 +503,7 @@ export function PlaceholderTable({ template }: { template: ExtractedTemplate | n
           Upload a document to see detected placeholders.
         </p>
       ) : (
-        <div className="max-h-72 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto">
           <table className="w-full text-sm text-slate-600">
             <thead className="text-left text-xs uppercase text-slate-500">
               <tr>
