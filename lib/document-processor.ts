@@ -1,4 +1,9 @@
-import { buildPlaceholderKeyUsage, chunkDocumentText, extractTemplateChunkRange, MAX_CHUNK_LENGTH } from "./extraction";
+import {
+  buildPlaceholderKeyUsage,
+  chunkDocumentText,
+  extractTemplateChunksIndividually,
+  MAX_CHUNK_LENGTH,
+} from "./extraction";
 import {
   getDocumentById,
   updateDocumentProcessingState,
@@ -77,31 +82,54 @@ export async function processDocumentChunkBatch(
 
   try {
     const usageMap = buildPlaceholderKeyUsage(document.template_json.placeholders);
-    const chunkTemplate = await extractTemplateChunkRange(chunks, nextChunk, resolvedBatchSize, {
-      usageMap,
-    });
+    const chunkTemplates = await extractTemplateChunksIndividually(
+      chunks,
+      nextChunk,
+      resolvedBatchSize,
+      { usageMap }
+    );
 
-    const mergedTemplate: ExtractedTemplate = {
-      docAst: document.template_json.docAst.concat(chunkTemplate.docAst),
-      placeholders: document.template_json.placeholders.concat(chunkTemplate.placeholders),
+    let latestTemplate: ExtractedTemplate = {
+      docAst: document.template_json.docAst,
+      placeholders: document.template_json.placeholders,
     };
+    let latestDocument: InternalDocumentRecord | DocumentRecord = document;
 
-    const processedChunks = nextChunk + resolvedBatchSize;
-    const isComplete = processedChunks >= totalChunks;
-    const progress = Math.min(100, Math.round((processedChunks / totalChunks) * 100));
+    for (let offset = 0; offset < chunkTemplates.length; offset += 1) {
+      const chunkTemplate = chunkTemplates[offset];
+      latestTemplate = {
+        docAst: latestTemplate.docAst.concat(chunkTemplate.docAst),
+        placeholders: latestTemplate.placeholders.concat(chunkTemplate.placeholders),
+      };
 
-    const updated = await updateTemplateJson(documentId, mergedTemplate, {
-      processing_status: isComplete ? "ready" : "processing",
-      processing_progress: progress,
-      processing_total_chunks: totalChunks,
-      processing_next_chunk: processedChunks,
-      processing_error: null,
-      plain_text: isComplete ? null : document.plain_text,
-    });
+      const processedChunks = nextChunk + offset + 1;
+      const isComplete = processedChunks >= totalChunks;
+      const progress = Math.min(100, Math.round((processedChunks / totalChunks) * 100));
+
+      const updated = await updateTemplateJson(documentId, latestTemplate, {
+        processing_status: isComplete ? "ready" : "processing",
+        processing_progress: progress,
+        processing_total_chunks: totalChunks,
+        processing_next_chunk: processedChunks,
+        processing_error: null,
+        plain_text: isComplete ? null : document.plain_text,
+      });
+
+      if (updated) {
+        latestDocument = updated;
+      }
+    }
+
+    const finalStatus: ProcessBatchStatus =
+      latestDocument.processing_status === "ready"
+        ? "ready"
+        : latestDocument.processing_status === "failed"
+          ? "failed"
+          : "processing";
 
     return {
-      status: isComplete ? "ready" : "processing",
-      document: updated ?? document,
+      status: finalStatus,
+      document: latestDocument,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown processing failure";

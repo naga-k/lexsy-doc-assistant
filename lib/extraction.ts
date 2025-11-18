@@ -61,6 +61,26 @@ export async function extractTemplateChunkRange(
   return ensureUniquePlaceholderKeys(mergedTemplate, options?.usageMap);
 }
 
+export async function extractTemplateChunksIndividually(
+  chunks: string[],
+  startIndex: number,
+  count: number,
+  options?: { usageMap?: Map<string, number> }
+): Promise<ExtractedTemplate[]> {
+  if (chunks.length === 0 || startIndex >= chunks.length || count <= 0) {
+    return [];
+  }
+  const slice = chunks.slice(startIndex, startIndex + count);
+  const chunkTemplates = await Promise.all(
+    slice.map((chunk, sliceIndex) =>
+      extractChunkTemplate(chunk, startIndex + sliceIndex, chunks.length)
+    )
+  );
+  const normalized = chunkTemplates.map(normalizeExtractedTemplate);
+  const usageMap = options?.usageMap;
+  return normalized.map((template) => ensureUniquePlaceholderKeys(template, usageMap));
+}
+
 export function buildPlaceholderKeyUsage(placeholders: Placeholder[]): Map<string, number> {
   const usage = new Map<string, number>();
   for (const placeholder of placeholders) {

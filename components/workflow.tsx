@@ -392,8 +392,11 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
             <ConversationScrollButton className="bg-white/10 text-white shadow-lg hover:bg-white/20" />
           </Conversation>
         </div>
-        <div className="border-t border-white/10 bg-slate-950/60 px-0 py-0">
-          <PromptInput onSubmit={handlePromptSubmit} className="lexsy-chat-input-group">
+        <div className="relative border-t border-white/10 bg-slate-950/60 px-0 py-0 rounded-b-4xl">
+          <PromptInput
+            onSubmit={handlePromptSubmit}
+            className="lexsy-chat-input-group rounded-b-4xl relative z-10"
+          >
             <PromptInputTextarea
               placeholder="Send a message to Lexsy…"
               className="lexsy-chat-textarea h-11 flex-1 border-none bg-transparent text-left text-sm text-white placeholder:text-white/60"
