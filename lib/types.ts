@@ -39,7 +39,7 @@ export type DocAstNode =
 const rawPlaceholderSchema = z.object({
   key: z.string(),
   raw: z.string().optional(),
-  exampleContext: z.string().optional(),
+  description: z.string().optional(),
   type: placeholderValueTypeSchema,
   required: z.boolean().optional(),
   value: z.string().nullable().optional(),
@@ -48,7 +48,7 @@ const rawPlaceholderSchema = z.object({
 export type Placeholder = {
   key: string;
   raw: string;
-  exampleContext: string;
+  description: string;
   type: PlaceholderValueType;
   required: boolean;
   value?: string | null;
@@ -84,7 +84,7 @@ export function normalizeExtractedTemplate(raw: RawExtractedTemplate): Extracted
     placeholders: raw.placeholders.map((placeholder) => ({
       key: placeholder.key,
       raw: sanitizeDocString(placeholder.raw ?? placeholder.key),
-      exampleContext: sanitizeDocString(placeholder.exampleContext ?? ""),
+      description: sanitizeDescription(placeholder.description ?? ""),
       type: placeholder.type,
       required: placeholder.required ?? true,
       value: placeholder.value ? sanitizeDocString(placeholder.value) : null,
@@ -94,6 +94,14 @@ export function normalizeExtractedTemplate(raw: RawExtractedTemplate): Extracted
 
 function sanitizeDocString(value: string): string {
   return value.replace(/\u0000/g, "");
+}
+
+function sanitizeDescription(value: string): string {
+  const sanitized = sanitizeDocString(value).trim();
+  if (!sanitized) {
+    return "";
+  }
+  return sanitized.length > 30 ? sanitized.slice(0, 30) : sanitized;
 }
 
 export type DocumentProcessingStatus = "pending" | "processing" | "ready" | "failed";

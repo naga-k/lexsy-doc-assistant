@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
@@ -224,6 +224,7 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
   );
 
   const isBusy = status === "submitted" || status === "streaming";
+  const lastAssistantMessageId = useMemo(() => getLastAssistantMessageId(messages), [messages]);
   const placeholderStats = useMemo(() => {
     const placeholders = document.template_json?.placeholders ?? [];
     let filled = 0;
@@ -324,7 +325,9 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
 
       const resolvedGuidanceId =
         getGuidanceMessageId(guidanceKey) ??
-        `guidance-${nextPlaceholder.key ?? nextPlaceholder.raw ?? nextPlaceholder.exampleContext ?? "placeholder"}`;
+        `guidance-${
+          nextPlaceholder.key ?? nextPlaceholder.raw ?? nextPlaceholder.description ?? "placeholder"
+        }`;
 
       const guidanceMessage = remoteText
         ? buildAssistantMessage(resolvedGuidanceId, remoteText)
@@ -380,13 +383,22 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
               </ConversationEmptyState>
             ) : (
               <ConversationContent className="gap-5 p-5 sm:p-7">
-                {messages.map((message, index) => (
-                  <ChatMessage key={message.id ?? `${message.role}-${index}`} from={message.role}>
-                    <MessageContent>
-                      <MessageResponse>{renderMessageText(message)}</MessageResponse>
-                    </MessageContent>
-                  </ChatMessage>
-                ))}
+                {messages.map((message, index) => {
+                  const parts = renderMessageParts({
+                    message,
+                    status,
+                    lastAssistantMessageId,
+                  });
+                  if (!parts || parts.length === 0) {
+                    return null;
+                  }
+
+                  return (
+                    <ChatMessage key={message.id ?? `${message.role}-${index}`} from={message.role}>
+                      <MessageContent>{parts}</MessageContent>
+                    </ChatMessage>
+                  );
+                })}
               </ConversationContent>
             )}
             <ConversationScrollButton className="bg-white/10 text-white shadow-lg hover:bg-white/20" />
@@ -459,7 +471,8 @@ function getPlaceholderDisplayName(placeholder: Placeholder | null | undefined):
   if (!placeholder) {
     return "this field";
   }
-  const source = placeholder.exampleContext?.trim() || placeholder.raw || placeholder.key;
+  const source =
+    placeholder.description?.trim() || placeholder.key?.trim() || placeholder.raw?.trim();
   return formatPlaceholderLabel(source);
 }
 
@@ -508,7 +521,7 @@ function buildGuidanceMessage({
   outstandingCount,
 }: GuidanceMessageConfig): UIMessage {
   const label = getPlaceholderDisplayName(placeholder);
-  const context = placeholder.exampleContext?.trim();
+  const context = placeholder.description?.trim();
   const placeholderKey = placeholder.key ?? label;
   const remaining = outstandingCount > 1 ? `${outstandingCount - 1} more after this` : "this is the final field";
   const intro = `Let's capture ${label} for ${documentTitle}.`;
@@ -516,6 +529,107 @@ function buildGuidanceMessage({
   const wrapUp = `Once we lock this in, ${remaining}.`;
 
   return buildAssistantMessage(`guidance-${placeholderKey}`, `${intro} ${contextLine} ${wrapUp}`);
+}
+
+type ChatStatus = ReturnType<typeof useChat>["status"];
+
+function renderMessageParts({
+  message,
+  status,
+  lastAssistantMessageId,
+}: {
+  message: UIMessage;
+  status: ChatStatus;
+  lastAssistantMessageId?: string;
+}): ReactNode[] | null {
+  const fallbackContent = renderMessageText(message).trim();
+  const hasStructuredParts = Boolean(message.parts && message.parts.length > 0);
+  if (!hasStructuredParts) {
+    if (!fallbackContent) {
+      return null;
+    }
+    return [
+      <MessageResponse key={`${message.id ?? "message"}-text`}>
+        {fallbackContent}
+      </MessageResponse>,
+    ];
+  }
+
+  const isLatestAssistantMessage =
+    message.role === "assistant" &&
+    Boolean(message.id) &&
+    Boolean(lastAssistantMessageId) &&
+    message.id === lastAssistantMessageId;
+
+  const textBlocks: string[] = [];
+  const hintBlocks: ReactNode[] = [];
+
+  message.parts!.forEach((part, index) => {
+    if (part.type === "text") {
+      const text = part.text?.trim();
+      if (text) {
+        textBlocks.push(text);
+      }
+      return;
+    }
+
+    if (part.type === "source-url" || part.type === "source-document") {
+      const label = part.title ?? ("url" in part ? part.url : undefined) ?? part.sourceId;
+      if (label) {
+        textBlocks.push(label);
+      }
+      return;
+    }
+
+    if (part.type === "reasoning") {
+      const isStreamingPart =
+        status === "streaming" &&
+        isLatestAssistantMessage &&
+        index === message.parts!.length - 1;
+      if (!isStreamingPart) {
+        return;
+      }
+      hintBlocks.push(
+        <ReasoningHint key={`${message.id ?? "message"}-reasoning-${index}`} />
+      );
+      return;
+    }
+
+    if (isToolUIPart(part)) {
+      const hint = buildToolHint({
+        part,
+        messageId: message.id,
+        partIndex: index,
+      });
+      if (hint) {
+        hintBlocks.push(hint);
+      }
+    }
+  });
+
+  const content: ReactNode[] = [];
+  const combinedText = textBlocks.join("\n\n").trim();
+  if (combinedText) {
+    content.push(
+      <MessageResponse key={`${message.id ?? "message"}-text`}>
+        {combinedText}
+      </MessageResponse>
+    );
+  }
+
+  if (hintBlocks.length > 0) {
+    content.push(...hintBlocks);
+  }
+
+  if (content.length === 0 && fallbackContent) {
+    return [
+      <MessageResponse key={`${message.id ?? "message"}-text-fallback`}>
+        {fallbackContent}
+      </MessageResponse>,
+    ];
+  }
+
+  return content.length > 0 ? content : null;
 }
 
 function renderMessageText(message: UIMessage): string {
@@ -527,17 +641,126 @@ function renderMessageText(message: UIMessage): string {
     .map((part) => {
       switch (part.type) {
         case "text":
-        case "reasoning":
           return part.text;
         case "source-url":
           return part.title ?? part.url ?? part.sourceId;
         case "source-document":
           return part.title ?? part.sourceId;
         default:
-          return `[${part.type}]`;
+          return "";
       }
     })
     .join(" ");
+}
+
+type ToolUIPart = UIMessage["parts"][number] & {
+  type: string;
+  state?: string;
+  toolName?: string;
+  errorText?: string;
+};
+
+function ReasoningHint() {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs text-white/70">
+      <Loader size={10} className="text-indigo-200" />
+      Thinking through the next step…
+    </div>
+  );
+}
+
+function isToolUIPart(part: UIMessage["parts"][number]): part is ToolUIPart {
+  if (!part || typeof part !== "object") {
+    return false;
+  }
+  if (typeof part.type !== "string") {
+    return false;
+  }
+  return (
+    part.type === "tool-call" ||
+    part.type === "tool-result" ||
+    part.type === "dynamic-tool" ||
+    part.type.startsWith("tool-")
+  );
+}
+
+function buildToolHint({
+  part,
+  messageId,
+  partIndex,
+}: {
+  part: ToolUIPart;
+  messageId?: string;
+  partIndex: number;
+}): ReactNode | null {
+  const toolState = formatToolHint(part.state);
+  if (!toolState) {
+    return null;
+  }
+
+  const key = `${messageId ?? "message"}-tool-${partIndex}`;
+  const toneClasses =
+    toolState.variant === "error"
+      ? "text-rose-200"
+      : "text-white/70";
+
+  return (
+    <div
+      key={key}
+      className="inline-flex flex-wrap items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs"
+    >
+      {toolState.showSpinner ? <Loader size={10} className="text-indigo-200" /> : null}
+      <span className={clsx("font-semibold", toneClasses)}>
+        {formatToolDisplayName(part.toolName ?? part.type)}
+      </span>
+      <span className={toneClasses}>{toolState.label}</span>
+      {toolState.variant === "error" && part.errorText ? (
+        <span className="text-rose-300">{part.errorText}</span>
+      ) : null}
+    </div>
+  );
+}
+
+function formatToolDisplayName(value: string | undefined): string {
+  if (!value) {
+    return "Tool";
+  }
+  const cleaned = value.replace(/^tool-/, "");
+  return cleaned
+    .split(/[-_]/g)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+}
+
+function formatToolHint(state?: string):
+  | {
+      label: string;
+      variant: "neutral" | "error";
+      showSpinner: boolean;
+    }
+  | null {
+  switch (state) {
+    case "input-streaming":
+      return { label: "gathering info", variant: "neutral", showSpinner: true };
+    case "input-available":
+      return { label: "queued", variant: "neutral", showSpinner: true };
+    case "output-error":
+      return { label: "needs another try", variant: "error", showSpinner: false };
+    case "output-available":
+      return null; // already done; no need to surface
+    default:
+      return { label: "working", variant: "neutral", showSpinner: true };
+  }
+}
+
+function getLastAssistantMessageId(messages: UIMessage[]): string | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const candidate = messages[index];
+    if (candidate.role === "assistant" && candidate.id) {
+      return candidate.id;
+    }
+  }
+  return undefined;
 }
 
 export function DocumentPreviewWindow({ template }: { template: ExtractedTemplate | null }) {
@@ -674,9 +897,7 @@ export function PlaceholderTable({ template }: { template: ExtractedTemplate | n
                   return String(placeholder.value).trim();
                 })();
                 const filled = formattedValue !== "";
-                const fieldLabel = formatPlaceholderLabel(
-                  placeholder.exampleContext || placeholder.raw || placeholder.key || ""
-                );
+                const fieldLabel = getPlaceholderDisplayName(placeholder);
                 const currentValue = filled ? formattedValue : "";
                 const displayValue = currentValue ? truncateValue(currentValue) : "";
                 const statusText = filled
@@ -684,7 +905,7 @@ export function PlaceholderTable({ template }: { template: ExtractedTemplate | n
                   : placeholder.required
                     ? "Missing"
                     : "Optional";
-                const originalEntry = placeholder.raw ?? placeholder.exampleContext ?? "—";
+                const originalEntry = placeholder.raw ?? placeholder.description ?? "—";
                 const statusClasses = clsx(
                   "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-wide",
                   filled
