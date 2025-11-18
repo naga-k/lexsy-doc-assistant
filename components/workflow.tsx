@@ -122,26 +122,21 @@ export interface ChatPanelProps {
 
 export function ChatPanel({ document, onTemplateUpdated, className }: ChatPanelProps) {
   return (
-    <section
-      className={clsx(
-        "flex min-h-0 flex-col overflow-hidden rounded-4xl border border-white/10 bg-linear-to-b from-slate-950/80 via-slate-950/60 to-slate-950/80 text-white shadow-[0_35px_80px_rgba(2,6,23,0.65)] backdrop-blur-lg",
-        className
-      )}
-    >
+    <div className={clsx("flex min-h-0 flex-col text-white", className)}>
       {!document ? (
-        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-slate-900/60 px-6 py-5 text-center text-sm text-slate-300">
+        <p className="rounded-2xl border border-dashed border-white/20 px-4 py-5 text-center text-sm text-white/70">
           Upload a .docx template to unlock live chat with Lexsy&apos;s legal assistant.
-        </div>
+        </p>
       ) : document.processing_status !== "ready" ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/20 bg-slate-900/60 px-6 py-5 text-center">
-          <Loader size={20} className="text-indigo-200" />
-          <p className="text-sm text-slate-200">Preparing your template&hellip;</p>
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-2xl border border-white/15 bg-black/20 px-4 py-5 text-center">
+          <Loader size={20} className="text-white/80" />
+          <p className="text-sm text-white/80">Preparing your template&hellip;</p>
           <p className="text-xs text-white/60">Chat will unlock once extraction finishes.</p>
         </div>
       ) : (
         <ActiveChatPanel document={document} onTemplateUpdated={onTemplateUpdated} />
       )}
-    </section>
+    </div>
   );
 }
 
@@ -365,10 +360,10 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
 
   return (
     <div className="flex flex-1 min-h-0 flex-col text-white">
-      <div className="relative flex min-h-0 flex-1 flex-col rounded-4xl border border-white/10 bg-slate-950/40">
+      <div className="relative flex min-h-0 flex-1 flex-col rounded-3xl border border-white/10 bg-black/20">
         <div className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           {isBusy ? (
-            <div className="pointer-events-none absolute left-1/2 top-4 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-slate-950/90 px-3 py-1 text-xs font-medium text-white/80 shadow-xl">
+            <div className="pointer-events-none absolute left-1/2 top-4 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] font-medium text-white/80 shadow-xl">
               <Loader size={14} className="text-indigo-200" />
               <span>Lexsy is drafting</span>
             </div>
@@ -378,7 +373,7 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
               <ConversationEmptyState className="px-8 text-white/80">
                 <div className="space-y-2 text-center">
                   <h2 className="text-lg font-semibold text-white">Lexsy is getting oriented</h2>
-                  <p className="text-sm text-slate-200">
+                  <p className="text-sm text-white/70">
                     I’ll open with guidance based on your template and keep everything synced automatically.
                   </p>
                 </div>
@@ -403,13 +398,13 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
                 })}
               </ConversationContent>
             )}
-            <ConversationScrollButton className="bg-white/10 text-white shadow-lg hover:bg-white/20" />
+            <ConversationScrollButton className="bg-white/15 text-white shadow-lg hover:bg-white/25" />
           </Conversation>
         </div>
-        <div className="relative border-t border-white/10 bg-slate-950/60 px-0 py-0 rounded-b-4xl">
+        <div className="lexsy-chat-input-shell">
           <PromptInput
             onSubmit={handlePromptSubmit}
-            className="lexsy-chat-input-group rounded-b-4xl relative z-10"
+            className="lexsy-chat-input-group"
           >
             <PromptInputTextarea
               placeholder="Send a message to Lexsy…"
@@ -417,7 +412,7 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
             />
             <PromptInputSubmit
               status={status}
-              className="flex size-11 items-center justify-center rounded-full bg-indigo-500 text-white transition hover:bg-indigo-400 disabled:opacity-70"
+              className="flex size-11 items-center justify-center rounded-full bg-linear-to-br from-[#ff5ea8] to-[#ff8c7a] text-white shadow-[0_15px_35px_rgba(0,0,0,0.5)] transition hover:brightness-110 disabled:opacity-60"
               disabled={isBusy}
               size="icon-sm"
             >
@@ -428,7 +423,7 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
               )}
             </PromptInputSubmit>
           </PromptInput>
-          {error ? <p className="mt-2 text-xs text-rose-200">{error.message}</p> : null}
+          {error ? <p className="mt-3 text-xs text-rose-200">{error.message}</p> : null}
         </div>
       </div>
     </div>
@@ -773,25 +768,31 @@ export function DocumentPreviewWindow({
   document: DocumentRecord | null;
 }) {
   return (
-    <SuperDocViewer
-      document={document}
-      variant="live"
-      className="h-full"
-      fallback={
-        !template ? (
-          <p className="text-slate-300">
-            Upload a template to see a live Microsoft Word preview with comments and pagination.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-2 text-sm text-slate-100">
-            <p className="text-slate-300">
-              Waiting for the rendered DOCX? Here&apos;s the structured view while we sync the real document.
-            </p>
-            <PreviewBody template={template} />
-          </div>
-        )
-      }
-    />
+    <section className="lexsy-panel lexsy-panel-borderless flex h-full flex-col rounded-3xl p-3 text-white sm:p-4">
+      <div className="flex-1 min-h-0 overflow-hidden rounded-3xl p-0">
+        <SuperDocViewer
+          document={document}
+          variant="live"
+          className="h-full rounded-3xl"
+          fallback={
+            !template ? (
+              <p className="text-sm text-white/70">
+                Upload a template to see a live Microsoft Word preview with comments and pagination.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3 text-sm text-white/80">
+                <p className="text-white/60">
+                  Waiting for the rendered DOCX? Here&apos;s the structured view while we sync the real document.
+                </p>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-white/80">
+                  <PreviewBody template={template} />
+                </div>
+              </div>
+            )
+          }
+        />
+      </div>
+    </section>
   );
 }
 
@@ -808,6 +809,7 @@ export function PlaceholderTable({
   const [draftValue, setDraftValue] = useState("");
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
+  const placeholders = template?.placeholders ?? [];
 
   const beginEditing = useCallback((placeholder: Placeholder) => {
     setEditingKey(placeholder.key);
@@ -847,25 +849,25 @@ export function PlaceholderTable({
   }, [document, draftValue, editingKey, onDocumentUpdated]);
 
   return (
-    <section className="flex h-full flex-col rounded-3xl border border-white/15 bg-slate-950/60 p-4 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur sm:p-5">
+    <section className="lexsy-panel flex h-full flex-col rounded-3xl p-4 text-white sm:p-5">
       {!template ? (
-          <p className="rounded-xl border border-dashed border-white/20 bg-white/5 p-4 text-center text-sm text-white/70">
+        <p className="rounded-xl border border-dashed border-white/20 bg-white/5 p-4 text-center text-sm text-white/70">
           Upload a document to see detected placeholders.
         </p>
       ) : (
         <div className="flex-1 overflow-y-auto">
-            <table className="w-full text-sm text-white/80">
+          <table className="w-full text-sm text-white/80">
             <thead className="text-left text-xs uppercase text-white/60">
               <tr>
                 <th className="py-2 pr-3">Field</th>
                 <th className="py-2 pr-3">Original entry</th>
                 <th className="py-2 pr-3">Status</th>
-                <th className="py-2">Type</th>
+                <th className="py-2 pr-3">Type</th>
                 <th className="py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {template.placeholders.map((placeholder) => {
+              {placeholders.map((placeholder) => {
                 const formattedValue = (() => {
                   if (typeof placeholder.value === "string") {
                     return placeholder.value.trim();
@@ -907,7 +909,7 @@ export function PlaceholderTable({
                           {statusText}
                         </span>
                       </td>
-                      <td className="py-3 text-xs uppercase tracking-wide text-white/50">{placeholder.type}</td>
+                      <td className="py-3 pr-3 text-xs uppercase tracking-wide text-white/50">{placeholder.type}</td>
                       <td className="py-3">
                         <button
                           type="button"

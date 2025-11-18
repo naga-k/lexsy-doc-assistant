@@ -48,8 +48,8 @@ export const MessageContent = ({
   <div
     className={cn(
       "is-user:dark flex w-fit max-w-full flex-col gap-2 overflow-hidden rounded-[22px] px-4 py-3 text-sm leading-relaxed shadow-sm transition break-words text-left",
-      "group-[.is-user]:ml-auto group-[.is-user]:rounded-br-xl group-[.is-user]:bg-gradient-to-br group-[.is-user]:from-indigo-500/95 group-[.is-user]:to-indigo-400/80 group-[.is-user]:text-white group-[.is-user]:shadow-[0_12px_30px_rgba(79,70,229,0.35)]",
-      "group-[.is-assistant]:rounded-bl-xl group-[.is-assistant]:bg-white/5 group-[.is-assistant]:text-white/90 group-[.is-assistant]:ring-1 group-[.is-assistant]:ring-white/10 group-[.is-assistant]:backdrop-blur-sm",
+      "group-[.is-user]:ml-auto group-[.is-user]:rounded-br-xl group-[.is-user]:lexsy-message-user",
+      "group-[.is-assistant]:rounded-bl-xl group-[.is-assistant]:lexsy-message-assistant",
       className
     )}
     {...props}

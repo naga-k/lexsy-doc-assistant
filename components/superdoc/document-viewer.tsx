@@ -22,13 +22,6 @@ export interface SuperDocViewerProps {
   onStatusChange?: (status: SuperDocViewerStatus) => void;
 }
 
-const STATUS_LABELS: Record<SuperDocViewerStatus, string> = {
-  idle: "Waiting for document",
-  loading: "Loading Word view",
-  ready: "Live Word preview",
-  error: "Preview unavailable",
-};
-
 export function SuperDocViewer({
   document,
   className,
@@ -143,32 +136,19 @@ export function SuperDocViewer({
     <div className={clsx("flex h-full flex-col gap-2", className)}>
       {canShowViewer ? (
         <>
-          <div className="relative flex-1 min-h-[280px] rounded-3xl border border-white/15 bg-slate-950/70">
+          <div className="relative flex-1 min-h-[280px] rounded-[inherit] bg-transparent">
             <div
               id={containerIdRef.current}
-              className="superdoc-host h-full w-full overflow-auto rounded-3xl"
+              className="superdoc-host h-full w-full overflow-auto rounded-[inherit]"
             />
-            <div className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.25em]">
-              <span className="rounded-full border border-white/15 bg-slate-950/70 px-3 py-1 text-white/80">
-                {STATUS_LABELS[status]}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={handleReload}
-              disabled={status === "loading"}
-              className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-slate-950/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80 transition hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Refresh
-            </button>
             {status === "loading" ? (
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-950/70 text-sm text-white/70">
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-[inherit] bg-black/60 text-sm text-white/70">
                 <Loader size={20} className="text-indigo-200" />
                 <span>Preparing DOCX preview…</span>
               </div>
             ) : null}
             {status === "error" ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-950/80 text-center text-sm text-rose-200">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-[inherit] bg-black/70 text-center text-sm text-rose-200">
                 <p>{error ?? "Unable to render document."}</p>
                 <button
                   type="button"
