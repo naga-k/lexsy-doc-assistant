@@ -94,7 +94,9 @@ function FillPageContent() {
       prev
         ? {
             ...prev,
-            processing_status: "processing",
+            processing_status: "pending",
+            processing_progress: 0,
+            processing_next_chunk: 0,
           }
         : prev
     );
@@ -122,24 +124,24 @@ function FillPageContent() {
     let cancelled = false;
     let timeoutId: number | null = null;
 
-    const tick = async () => {
+    const poll = async () => {
       try {
-        const updated = await processDocument(docId);
+        const updated = await requestDocument(docId);
         if (cancelled) return;
         setDocument(updated);
         setProcessingError(null);
         if (updated.processing_status === "ready" || updated.processing_status === "failed") {
           return;
         }
-        timeoutId = window.setTimeout(tick, 800);
-      } catch (processErr) {
+        timeoutId = window.setTimeout(poll, 1200);
+      } catch (pollError) {
         if (cancelled) return;
-        setProcessingError((processErr as Error).message);
-        timeoutId = window.setTimeout(tick, 1500);
+        setProcessingError((pollError as Error).message);
+        timeoutId = window.setTimeout(poll, 2500);
       }
     };
 
-    tick();
+    void poll();
 
     return () => {
       cancelled = true;
