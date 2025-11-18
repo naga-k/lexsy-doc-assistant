@@ -341,45 +341,59 @@ function PendingTemplateState({ status, progress }: PendingTemplateStateProps) {
 
 function useOptimisticProgress(progress: number, totalChunks: number, isActive: boolean) {
   const [displayProgress, setDisplayProgress] = useState(progress);
-  const displayRef = useRef(progress);
+  const lastServerProgressRef = useRef(progress);
+  const lastServerUpdateRef = useRef(0);
 
   useEffect(() => {
-    setDisplayProgress(progress);
-  }, [progress]);
+    if (lastServerUpdateRef.current === 0) {
+      lastServerUpdateRef.current = Date.now();
+    }
+  }, []);
 
   useEffect(() => {
-    displayRef.current = displayProgress;
-  }, [displayProgress]);
+    if (progress > lastServerProgressRef.current) {
+      lastServerProgressRef.current = progress;
+      lastServerUpdateRef.current = Date.now();
+      queueMicrotask(() => {
+        setDisplayProgress((current) => Math.max(progress, current));
+      });
+    } else if (!isActive) {
+      queueMicrotask(() => {
+        setDisplayProgress(progress);
+      });
+    }
+  }, [progress, isActive]);
 
   useEffect(() => {
     if (!isActive) {
-      setDisplayProgress(progress);
+      queueMicrotask(() => setDisplayProgress(progress));
       return;
     }
 
-    const chunkFraction = totalChunks > 0 ? 100 / totalChunks : 6;
-    const optimisticCap = Math.min(99, progress + chunkFraction * 0.85);
-    const step = Math.max(0.15, chunkFraction / 12);
-
-    if (displayRef.current >= optimisticCap) {
-      return;
-    }
-
+    const chunkFraction = totalChunks > 0 ? 100 / totalChunks : 5;
     const intervalId = window.setInterval(() => {
       setDisplayProgress((current) => {
-        if (current >= optimisticCap) {
+        const stallSeconds = (Date.now() - lastServerUpdateRef.current) / 1000;
+        const baseLead = chunkFraction * 1.25;
+        const stallLead = stallSeconds * chunkFraction * 0.35;
+        const maxLead = Math.min(95 - progress, baseLead + stallLead);
+        const optimisticTarget = Math.min(99, progress + maxLead);
+
+        if (current >= optimisticTarget) {
           return current;
         }
-        return Math.min(current + step, optimisticCap);
+
+        const step = Math.max(0.2, chunkFraction / 8);
+        return Math.min(optimisticTarget, current + step);
       });
-    }, 750);
+    }, 600);
 
     return () => {
       window.clearInterval(intervalId);
     };
   }, [isActive, progress, totalChunks]);
 
-  return Math.min(100, Math.max(0, displayProgress));
+  return Math.min(100, Math.max(progress, displayProgress));
 }
 
 function FillPageFallback() {

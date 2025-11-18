@@ -88,10 +88,28 @@ export async function processDocumentChunkBatch(
     };
     let latestDocument: InternalDocumentRecord | DocumentRecord = document;
 
-    for (let offset = 0; offset < resolvedBatchSize; offset += 1) {
-      const chunkTemplate = await extractTemplateChunk(chunks, nextChunk + offset, {
-        usageMap,
-      });
+    const chunkIndices = Array.from({ length: resolvedBatchSize }, (_, offset) => nextChunk + offset);
+
+    const chunkResults = await Promise.all(
+      chunkIndices.map(async (chunkIndex) => {
+        const chunkStartTime = Date.now();
+        console.info(`[documents.worker] Chunk processing start`, {
+          documentId: document.id,
+          chunkNumber: chunkIndex + 1,
+          totalChunks,
+          batchSize: resolvedBatchSize,
+          timestamp: new Date(chunkStartTime).toISOString(),
+        });
+
+        const chunkTemplate = await extractTemplateChunk(chunks, chunkIndex, {
+          usageMap,
+        });
+
+        return { chunkIndex, chunkTemplate, chunkStartTime };
+      })
+    );
+
+    for (const { chunkIndex, chunkTemplate, chunkStartTime } of chunkResults) {
       if (!chunkTemplate) {
         break;
       }
@@ -101,7 +119,7 @@ export async function processDocumentChunkBatch(
         placeholders: latestTemplate.placeholders.concat(chunkTemplate.placeholders),
       };
 
-      const processedChunks = nextChunk + offset + 1;
+      const processedChunks = chunkIndex + 1;
       const isComplete = processedChunks >= totalChunks;
       const progress = Math.min(100, Math.round((processedChunks / totalChunks) * 100));
 
@@ -117,6 +135,16 @@ export async function processDocumentChunkBatch(
       if (updated) {
         latestDocument = updated;
       }
+
+      console.info(`[documents.worker] Chunk processing complete`, {
+        documentId: document.id,
+        chunkNumber: processedChunks,
+        totalChunks,
+        progress,
+        status: isComplete ? "ready" : "processing",
+        durationMs: Date.now() - chunkStartTime,
+        timestamp: new Date().toISOString(),
+      });
 
       if (isComplete) {
         break;
