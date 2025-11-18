@@ -82,6 +82,11 @@ function FillPageContent() {
     void loadDocument({ background: true });
   }, [loadDocument]);
 
+  const handleDocumentPatched = useCallback((next: DocumentRecord) => {
+    setDocument(next);
+    setProcessingError(null);
+  }, [setProcessingError]);
+
   const handleJumpToPreview = useCallback(() => {
     if (!docId) return;
     router.push(`/preview?docId=${docId}`);
@@ -191,9 +196,13 @@ function FillPageContent() {
                 {isProcessing ? (
                   <PendingTemplateState status={document?.processing_status} progress={animatedProgress} />
                 ) : activePane === "document" ? (
-                  <DocumentPreviewWindow template={template} />
+                  <DocumentPreviewWindow template={template} document={document} />
                 ) : (
-                  <PlaceholderTable template={template} />
+                  <PlaceholderTable
+                    template={template}
+                    document={document}
+                    onDocumentUpdated={handleDocumentPatched}
+                  />
                 )}
               </div>
             </div>

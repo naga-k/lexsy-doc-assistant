@@ -37,8 +37,7 @@ export async function POST(
   const nextPlaceholder = outstandingPlaceholders[0];
   const nextPlaceholderPrompt = buildNextPlaceholderPrompt(nextPlaceholder);
   const { tools, hasTemplateUpdates } = createPlaceholderTools({
-    documentId: document.id,
-    template: document.template_json,
+    document,
   });
   const systemPrompt = buildSystemPrompt({
     baseInstructions: INITIAL_CHAT_INSTRUCTIONS,
