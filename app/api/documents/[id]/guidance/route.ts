@@ -6,6 +6,12 @@ import type { Placeholder } from "@/lib/types";
 
 export const maxDuration = 30;
 
+const INTRO_SYSTEM_PROMPT =
+  "You are Lexsy, a concise legal drafting co-pilot. Use exactly two sentences, reference the document title, report remaining placeholders, and invite the user to pick the next field.";
+
+const PLACEHOLDER_SYSTEM_PROMPT =
+  "You are Lexsy, a precise legal drafting assistant. Use two sentences: first, request the value with context; second, reassure the user about remaining work. Always mention whether the field is required.";
+
 type GuidanceVariant = "intro" | "placeholder";
 
 interface GuidanceRequest {
@@ -78,19 +84,23 @@ async function streamIntroText({
   const cleanedTitle = normalizeFilename(filename);
   const outstandingLabels = outstandingPlaceholders
     .slice(0, 3)
-    .map((placeholder) => sanitizeLabel(placeholder.raw ?? placeholder.key));
-  const outstandingSummary =
-    outstandingLabels.length > 0
-      ? `Remaining priority fields: ${outstandingLabels.join(", ")}.`
-      : "All placeholders look filled. Offer to review or tighten language.";
+    .map((placeholder) => `- ${sanitizeLabel(placeholder.raw ?? placeholder.key)}`)
+    .join("\n") || "- None";
+
+  const prompt = [
+    `Document title: ${cleanedTitle}`,
+    `Outstanding placeholders: ${outstandingCount}`,
+    "Focus fields:",
+    outstandingLabels,
+    "Response checklist:",
+    "- Sentence 1: greet the user, reference the document title, and mention progress.",
+    "- Sentence 2: suggest tackling one of the focus fields or offer an alternative next step.",
+  ].join("\n");
 
   return streamText({
     model: openai("gpt-5-mini"),
-    system:
-      "You are Lexsy, a concise legal drafting co-pilot. Greet the user warmly, mention the document you are helping with, summarize how many placeholders remain, and invite them to pick the next field. Keep it to 2 sentences.",
-    prompt: `Document title: ${cleanedTitle}
-Remaining placeholders: ${outstandingCount}
-${outstandingSummary}`,
+    system: INTRO_SYSTEM_PROMPT,
+    prompt,
   });
 }
 
@@ -112,15 +122,22 @@ async function streamPlaceholderText({
   const remainingText =
     remainingAfter > 0 ? `${remainingAfter} field${remainingAfter === 1 ? "" : "s"} left once this is done.` : "This is the last outstanding field.";
 
+  const prompt = [
+    `Document title: ${cleanedTitle}`,
+    `Placeholder key: ${placeholder.key}`,
+    `Display label: ${label}`,
+    `Short description: ${context ?? "No description"}`,
+    `Required: ${placeholder.required ? "Yes" : "No"}`,
+    `Remaining after completion: ${remainingText}`,
+    "Response checklist:",
+    "- Sentence 1: ask for the specific value, referencing why the description/field matters.",
+    "- Sentence 2: acknowledge the remaining workload and reassure the user you'll handle the next steps.",
+  ].join("\n");
+
   return streamText({
     model: openai("gpt-5-mini"),
-    system:
-      "You are Lexsy, a focused legal drafting assistant. Encourage the user to provide the requested value, reference why it matters, and end with reassurance about the remaining workload. Use 2 sentences max.",
-    prompt: `Document: ${cleanedTitle}
-Placeholder: ${label}
-Required: ${placeholder.required ? "Yes" : "No"}
-Short description: ${context ?? "N/A"}
-${remainingText}`,
+    system: PLACEHOLDER_SYSTEM_PROMPT,
+    prompt,
   });
 }
 

@@ -10,6 +10,25 @@ import {
 } from "./types";
 
 export const MAX_CHUNK_LENGTH = 5000;
+const EXTRACTION_SYSTEM_PROMPT =
+  "You are Lexsy's legal template parser. Extract placeholders faithfully, produce the exact JSON required by the schema, never invent tokens, and keep every description under 30 characters.";
+
+const EXTRACTION_OUTPUT_EXAMPLE = `{
+  "docAst": [
+    { "type": "text", "content": "The Company " },
+    { "type": "placeholder", "key": "company_name", "raw": "[Company Name]" }
+  ],
+  "placeholders": [
+    {
+      "key": "company_name",
+      "raw": "[Company Name]",
+      "description": "Issuer name",
+      "type": "STRING",
+      "required": true,
+      "value": null
+    }
+  ]
+}`;
 const EXTRACTION_MAX_ATTEMPTS = Math.max(
   1,
   Number(process.env.LEXSY_EXTRACTION_MAX_ATTEMPTS ?? process.env.LEXSY_EXTRACTION_RETRIES ?? "3")
@@ -102,23 +121,36 @@ async function extractChunkTemplate(
     totalChunks > 1 ? `DOCUMENT CHUNK (${chunkIndex + 1}/${totalChunks})` : "DOCUMENT TEXT";
   const attemptExtraction = () =>
     generateObject({
-      model: openai("gpt-5-nano"),
+      model: openai("gpt-5-mini"),
       schema: extractedTemplateSchema,
-      system:
-        "You transform legal template text into structured placeholder metadata for auto-filling documents. " +
-        "Only return valid JSON for the schema provided. Keep keys snake_cased without spaces and descriptions under 30 characters.",
-      prompt: `${header}:
-"""
-${chunk}
-"""
-
-Identify placeholder tokens such as [Company Name], $[_____], {{value}} etc that appear in this chunk. Build docAst as ordered nodes using either plain text or placeholder references.
-For each placeholder infer key, original raw token, a concise description (<30 chars), data type (${placeholderValueTypeSchema.options.join(
-        ", "
-      )}), and if the field is required. Include value=null.`,
+      system: EXTRACTION_SYSTEM_PROMPT,
+      prompt: buildExtractionPrompt(header, chunk),
     });
   const { object } = await runExtractionWithRetry(attemptExtraction, chunkIndex, totalChunks);
   return object;
+}
+
+function buildExtractionPrompt(header: string, chunk: string): string {
+  const placeholderTypes = placeholderValueTypeSchema.options.join(", ");
+  return [
+    `${header}`,
+    "## Document chunk",
+    "\"\"\"",
+    chunk,
+    "\"\"\"",
+    "## Task",
+    "1. Walk the text sequentially to build docAst nodes (either plain text or placeholder).",
+    "2. Whenever a placeholder token appears (e.g. [Company Name], $[_____], {{value}}), add a placeholder node and a matching entry in placeholders.",
+    "3. For each placeholder capture: key, raw token, <=30 character human-readable description, data type, required flag, and set value=null.",
+    "## Output rules",
+    "- Keep keys snake_cased with no spaces.",
+    "- Description must be concise (<30 chars) and reflect the field purpose.",
+    "- If no placeholders exist in this chunk, return docAst with text nodes only and an empty placeholders array.",
+    "- Never invent sample values or placeholders not present in the text.",
+    `- Valid data types: ${placeholderTypes}.`,
+    "## Example output",
+    EXTRACTION_OUTPUT_EXAMPLE,
+  ].join("\n");
 }
 
 async function runExtractionWithRetry<T>(
