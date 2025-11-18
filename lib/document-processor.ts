@@ -1,7 +1,7 @@
 import {
   buildPlaceholderKeyUsage,
   chunkDocumentText,
-  extractTemplateChunksIndividually,
+  extractTemplateChunk,
   MAX_CHUNK_LENGTH,
 } from "./extraction";
 import {
@@ -82,21 +82,20 @@ export async function processDocumentChunkBatch(
 
   try {
     const usageMap = buildPlaceholderKeyUsage(document.template_json.placeholders);
-    const chunkTemplates = await extractTemplateChunksIndividually(
-      chunks,
-      nextChunk,
-      resolvedBatchSize,
-      { usageMap }
-    );
-
     let latestTemplate: ExtractedTemplate = {
       docAst: document.template_json.docAst,
       placeholders: document.template_json.placeholders,
     };
     let latestDocument: InternalDocumentRecord | DocumentRecord = document;
 
-    for (let offset = 0; offset < chunkTemplates.length; offset += 1) {
-      const chunkTemplate = chunkTemplates[offset];
+    for (let offset = 0; offset < resolvedBatchSize; offset += 1) {
+      const chunkTemplate = await extractTemplateChunk(chunks, nextChunk + offset, {
+        usageMap,
+      });
+      if (!chunkTemplate) {
+        break;
+      }
+
       latestTemplate = {
         docAst: latestTemplate.docAst.concat(chunkTemplate.docAst),
         placeholders: latestTemplate.placeholders.concat(chunkTemplate.placeholders),
@@ -118,17 +117,14 @@ export async function processDocumentChunkBatch(
       if (updated) {
         latestDocument = updated;
       }
+
+      if (isComplete) {
+        break;
+      }
     }
 
-    const finalStatus: ProcessBatchStatus =
-      latestDocument.processing_status === "ready"
-        ? "ready"
-        : latestDocument.processing_status === "failed"
-          ? "failed"
-          : "processing";
-
     return {
-      status: finalStatus,
+      status: latestDocument.processing_status === "ready" ? "ready" : "processing",
       document: latestDocument,
     };
   } catch (error) {

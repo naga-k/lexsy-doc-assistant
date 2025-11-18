@@ -10,6 +10,14 @@ import {
 } from "./types";
 
 export const MAX_CHUNK_LENGTH = 5000;
+const EXTRACTION_MAX_ATTEMPTS = Math.max(
+  1,
+  Number(process.env.LEXSY_EXTRACTION_MAX_ATTEMPTS ?? process.env.LEXSY_EXTRACTION_RETRIES ?? "3")
+);
+const EXTRACTION_RETRY_DELAY_MS = Math.max(
+  0,
+  Number(process.env.LEXSY_EXTRACTION_RETRY_DELAY_MS ?? "1500")
+);
 
 export async function extractTemplateFromText(text: string): Promise<ExtractedTemplate> {
   if (!process.env.OPENAI_API_KEY) {
@@ -61,24 +69,17 @@ export async function extractTemplateChunkRange(
   return ensureUniquePlaceholderKeys(mergedTemplate, options?.usageMap);
 }
 
-export async function extractTemplateChunksIndividually(
+export async function extractTemplateChunk(
   chunks: string[],
-  startIndex: number,
-  count: number,
+  chunkIndex: number,
   options?: { usageMap?: Map<string, number> }
-): Promise<ExtractedTemplate[]> {
-  if (chunks.length === 0 || startIndex >= chunks.length || count <= 0) {
-    return [];
+): Promise<ExtractedTemplate | null> {
+  if (chunks.length === 0 || chunkIndex >= chunks.length || chunkIndex < 0) {
+    return null;
   }
-  const slice = chunks.slice(startIndex, startIndex + count);
-  const chunkTemplates = await Promise.all(
-    slice.map((chunk, sliceIndex) =>
-      extractChunkTemplate(chunk, startIndex + sliceIndex, chunks.length)
-    )
-  );
-  const normalized = chunkTemplates.map(normalizeExtractedTemplate);
-  const usageMap = options?.usageMap;
-  return normalized.map((template) => ensureUniquePlaceholderKeys(template, usageMap));
+  const raw = await extractChunkTemplate(chunks[chunkIndex], chunkIndex, chunks.length);
+  const normalized = normalizeExtractedTemplate(raw);
+  return ensureUniquePlaceholderKeys(normalized, options?.usageMap);
 }
 
 export function buildPlaceholderKeyUsage(placeholders: Placeholder[]): Map<string, number> {
@@ -99,24 +100,60 @@ async function extractChunkTemplate(
 ): Promise<RawExtractedTemplate> {
   const header =
     totalChunks > 1 ? `DOCUMENT CHUNK (${chunkIndex + 1}/${totalChunks})` : "DOCUMENT TEXT";
-  const { object } = await generateObject({
-    model: openai("gpt-5-mini"),
-    schema: extractedTemplateSchema,
-    system:
-      "You transform raw legal template text into structured placeholder metadata used for auto-filling documents. " +
-      "Only return valid JSON for the schema provided. Keep keys snake_cased without spaces.",
-    prompt: `${header}:
+  const attemptExtraction = () =>
+    generateObject({
+      model: openai("gpt-5-mini"),
+      schema: extractedTemplateSchema,
+      system:
+        "You transform raw legal template text into structured placeholder metadata used for auto-filling documents. " +
+        "Only return valid JSON for the schema provided. Keep keys snake_cased without spaces.",
+      prompt: `${header}:
 """
 ${chunk}
 """
 
 Identify placeholder tokens such as [Company Name], $[_____], {{value}} etc that appear in this chunk. Build docAst as ordered nodes using either plain text or placeholder references.
 For each placeholder infer key, original raw token, example context in <=160 chars, data type (${placeholderValueTypeSchema.options.join(
-      ", "
-    )}), and if the field is required. Include value=null.`,
-  });
-
+        ", "
+      )}), and if the field is required. Include value=null.`,
+    });
+  const { object } = await runExtractionWithRetry(attemptExtraction, chunkIndex, totalChunks);
   return object;
+}
+
+async function runExtractionWithRetry<T>(
+  task: () => Promise<{ object: T }>,
+  chunkIndex: number,
+  totalChunks: number
+): Promise<{ object: T }> {
+  let attempt = 0;
+  let lastError: unknown;
+  while (attempt < EXTRACTION_MAX_ATTEMPTS) {
+    attempt += 1;
+    try {
+      return await task();
+    } catch (error) {
+      lastError = error;
+      if (attempt < EXTRACTION_MAX_ATTEMPTS) {
+        console.warn("[extractTemplateChunk] Retrying chunk", {
+          chunkPosition: `${chunkIndex + 1}/${totalChunks}`,
+          attempt,
+          maxAttempts: EXTRACTION_MAX_ATTEMPTS,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        if (EXTRACTION_RETRY_DELAY_MS > 0) {
+          await delay(EXTRACTION_RETRY_DELAY_MS);
+        }
+      }
+    }
+  }
+  const errorMessage =
+    lastError instanceof Error ? lastError.message : "Template extraction failed after retries";
+  throw new Error(errorMessage);
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function chunkDocumentText(text: string, chunkSize: number): string[] {
