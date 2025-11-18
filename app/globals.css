@@ -26,6 +26,19 @@ body {
   min-height: 100vh;
 }
 
+.super-editor-container,
+.super-editor {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.super-editor-container .super-editor__element,
+.super-editor .super-editor__element {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .lexsy-chat-input-group {
   position: relative;
   isolation: isolate;

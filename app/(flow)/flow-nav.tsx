@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 export function FlowNav() {
   const pathname = usePathname();
-  const stepLabel = pathname === "/fill" ? "Step 2 · Fill" : pathname === "/preview" ? "Step 3 · Preview" : null;
+  const stepLabel = pathname === "/fill" ? "Step 2 · Fill" : null;
 
   return (
     <nav className="shrink-0 border-b border-white/10 bg-slate-950/90 backdrop-blur">
