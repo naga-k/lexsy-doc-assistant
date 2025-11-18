@@ -46,3 +46,10 @@ export async function generateDocument(documentId: string) {
   });
   return parseDocumentResponse(response);
 }
+
+export async function processDocument(documentId: string) {
+  const response = await fetch(`/api/documents/${documentId}/process`, {
+    method: "POST",
+  });
+  return parseDocumentResponse(response);
+}

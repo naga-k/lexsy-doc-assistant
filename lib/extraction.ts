@@ -9,7 +9,7 @@ import {
   normalizeExtractedTemplate,
 } from "./types";
 
-const MAX_CHUNK_LENGTH = 5000;
+export const MAX_CHUNK_LENGTH = 5000;
 
 export async function extractTemplateFromText(text: string): Promise<ExtractedTemplate> {
   if (!process.env.OPENAI_API_KEY) {
@@ -39,6 +39,39 @@ export async function extractTemplateFromText(text: string): Promise<ExtractedTe
   return result;
 }
 
+export async function extractTemplateChunkRange(
+  chunks: string[],
+  startIndex: number,
+  count: number,
+  options?: { usageMap?: Map<string, number> }
+): Promise<ExtractedTemplate> {
+  if (chunks.length === 0) {
+    return { docAst: [], placeholders: [] };
+  }
+  if (startIndex >= chunks.length || count <= 0) {
+    return { docAst: [], placeholders: [] };
+  }
+  const slice = chunks.slice(startIndex, startIndex + count);
+  const chunkTemplates = await Promise.all(
+    slice.map((chunk, sliceIndex) =>
+      extractChunkTemplate(chunk, startIndex + sliceIndex, chunks.length)
+    )
+  );
+  const mergedTemplate = mergeTemplates(chunkTemplates.map(normalizeExtractedTemplate));
+  return ensureUniquePlaceholderKeys(mergedTemplate, options?.usageMap);
+}
+
+export function buildPlaceholderKeyUsage(placeholders: Placeholder[]): Map<string, number> {
+  const usage = new Map<string, number>();
+  for (const placeholder of placeholders) {
+    const key = normalizeKeyCandidate(placeholder.key) || placeholder.key;
+    if (!key) continue;
+    const current = usage.get(key) ?? 0;
+    usage.set(key, current + 1);
+  }
+  return usage;
+}
+
 async function extractChunkTemplate(
   chunk: string,
   chunkIndex: number,
@@ -66,7 +99,7 @@ For each placeholder infer key, original raw token, example context in <=160 cha
   return object;
 }
 
-function chunkDocumentText(text: string, chunkSize: number): string[] {
+export function chunkDocumentText(text: string, chunkSize: number): string[] {
   if (text.length <= chunkSize) {
     return [text];
   }
@@ -107,8 +140,11 @@ function mergeTemplates(templates: ExtractedTemplate[]): ExtractedTemplate {
   };
 }
 
-function ensureUniquePlaceholderKeys(template: ExtractedTemplate): ExtractedTemplate {
-  const keyUsage = new Map<string, number>();
+function ensureUniquePlaceholderKeys(
+  template: ExtractedTemplate,
+  seedUsage?: Map<string, number>
+): ExtractedTemplate {
+  const keyUsage = seedUsage ?? new Map<string, number>();
   const keyMap = new Map<string, string>();
 
   const placeholders = template.placeholders.map((placeholder, index) => {

@@ -16,6 +16,13 @@ export async function POST(
     return NextResponse.json({ error: "Document not found" }, { status: 404 });
   }
 
+  if (document.processing_status !== "ready") {
+    return NextResponse.json(
+      { error: "Template is still processing. Please try again shortly." },
+      { status: 409 }
+    );
+  }
+
   if (!isTemplateComplete(document.template_json)) {
     return NextResponse.json(
       { error: "Please fill every required placeholder before generating the document." },

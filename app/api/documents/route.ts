@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { put } from "@vercel/blob";
-import { insertDocument } from "@/lib/documents";
+import { insertDocument, stripPrivateDocumentFields } from "@/lib/documents";
 import { extractRawText } from "@/lib/docx";
-import { extractTemplateFromText } from "@/lib/extraction";
+import { chunkDocumentText, MAX_CHUNK_LENGTH } from "@/lib/extraction";
 import type { ExtractedTemplate } from "@/lib/types";
 
 export const maxDuration = 60;
@@ -33,7 +33,11 @@ export async function POST(request: Request) {
   });
 
   const plainText = await extractRawText(buffer);
-  const template: ExtractedTemplate = await extractTemplateFromText(plainText);
+  const chunks = chunkDocumentText(plainText, MAX_CHUNK_LENGTH);
+  const totalChunks = chunks.length;
+  const initialStatus = totalChunks === 0 ? "ready" : "pending";
+  const initialProgress = totalChunks === 0 ? 100 : 0;
+  const initialTemplate: ExtractedTemplate = { docAst: [], placeholders: [] };
 
   const document = await insertDocument({
     id,
@@ -41,8 +45,14 @@ export async function POST(request: Request) {
     mime_type: file.type,
     original_blob_url: blob.url,
     filled_blob_url: null,
-    template_json: template,
+    template_json: initialTemplate,
+    plain_text: totalChunks === 0 ? null : plainText,
+    processing_status: initialStatus,
+    processing_progress: initialProgress,
+    processing_total_chunks: totalChunks,
+    processing_next_chunk: 0,
+    processing_error: null,
   });
 
-  return NextResponse.json({ document });
+  return NextResponse.json({ document: stripPrivateDocumentFields(document) });
 }

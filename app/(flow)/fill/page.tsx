@@ -3,11 +3,12 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
-import { requestDocument } from "@/lib/client-documents";
+import { processDocument, requestDocument } from "@/lib/client-documents";
 import { ChatPanel, DocumentPreviewWindow, PlaceholderTable } from "@/components/workflow";
 import clsx from "clsx";
 import { useFlowSession } from "../flow-session-context";
 import { getTemplateCompletionRatio } from "@/lib/templates";
+import { Loader } from "@/components/ai-elements/loader";
 
 type Pane = "document" | "placeholders";
 
@@ -26,6 +27,7 @@ function FillPageContent() {
   const [document, setDocument] = useState<DocumentRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [processingError, setProcessingError] = useState<string | null>(null);
   const [activePane, setActivePane] = useState<Pane>("document");
   const { setDocId: setActiveDocId, setIsDirty } = useFlowSession();
 
@@ -61,6 +63,7 @@ function FillPageContent() {
   useEffect(() => {
     if (docId) {
       void loadDocument();
+      setProcessingError(null);
     } else {
       setDocument(null);
     }
@@ -84,6 +87,73 @@ function FillPageContent() {
     router.push(`/preview?docId=${docId}`);
   }, [docId, router]);
 
+  const handleRetryProcessing = useCallback(() => {
+    if (!docId) return;
+    setProcessingError(null);
+    setDocument((prev) =>
+      prev
+        ? {
+            ...prev,
+            processing_status: "pending",
+            processing_progress: 0,
+            processing_next_chunk: 0,
+          }
+        : prev
+    );
+    void processDocument(docId)
+      .then((updated) => {
+        setDocument(updated);
+      })
+      .catch((processErr) => {
+        setProcessingError((processErr as Error).message);
+      });
+  }, [docId]);
+
+  const shouldAutoProcess = Boolean(
+    docId &&
+      document &&
+      document.processing_status !== "ready" &&
+      document.processing_status !== "failed"
+  );
+
+  useEffect(() => {
+    if (!docId || !shouldAutoProcess) {
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: number | null = null;
+
+    const poll = async () => {
+      try {
+        const updated = await requestDocument(docId);
+        if (cancelled) return;
+        setDocument(updated);
+        setProcessingError(null);
+        if (updated.processing_status === "ready" || updated.processing_status === "failed") {
+          return;
+        }
+        timeoutId = window.setTimeout(poll, 1200);
+      } catch (pollError) {
+        if (cancelled) return;
+        setProcessingError((pollError as Error).message);
+        timeoutId = window.setTimeout(poll, 2500);
+      }
+    };
+
+    void poll();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [docId, shouldAutoProcess, setDocument]);
+
+  const isProcessing = document ? document.processing_status !== "ready" : false;
+  const isProcessingFailed = document?.processing_status === "failed";
+
   return (
     <div className="flex h-full flex-1 min-h-0 flex-col gap-1 overflow-hidden px-2 py-4 sm:px-4 lg:px-5">
       {!docId ? (
@@ -94,17 +164,27 @@ function FillPageContent() {
         <p className="text-sm text-rose-300">{error}</p>
       ) : (
         <div className="flex flex-1 min-h-0 flex-col gap-2 sm:gap-3">
+          {document ? (
+            <ProcessingBanner
+              status={document.processing_status}
+              progress={document.processing_progress}
+              error={isProcessingFailed ? document.processing_error ?? processingError : processingError}
+              onRetry={handleRetryProcessing}
+            />
+          ) : null}
           <FillTopBar
             activePane={activePane}
             onPaneChange={setActivePane}
             onJumpToPreview={handleJumpToPreview}
-            previewDisabled={!docId}
+            previewDisabled={!docId || isProcessing}
             completionRatio={completionRatio}
           />
           <div className="grid flex-1 min-h-0 gap-3 lg:grid-cols-[minmax(0,0.6fr)_minmax(0,0.4fr)]">
             <div className="flex min-h-0 flex-col gap-3 overflow-hidden p-1 sm:p-2">
               <div className="flex-1 min-h-0 overflow-hidden">
-                {activePane === "document" ? (
+                {isProcessing ? (
+                  <PendingTemplateState status={document?.processing_status} progress={document?.processing_progress ?? 0} />
+                ) : activePane === "document" ? (
                   <DocumentPreviewWindow template={template} />
                 ) : (
                   <PlaceholderTable template={template} />
@@ -176,6 +256,77 @@ function FillTopBar({
       >
         Preview & Generate
       </button>
+    </div>
+  );
+}
+
+type ProcessingBannerProps = {
+  status: DocumentRecord["processing_status"];
+  progress: number;
+  error: string | null;
+  onRetry: () => void;
+};
+
+function ProcessingBanner({ status, progress, error, onRetry }: ProcessingBannerProps) {
+  if (status === "ready") {
+    return null;
+  }
+  const isFailed = status === "failed";
+  const statusLabel = isFailed
+    ? "Extraction failed"
+    : status === "processing"
+      ? "Extracting template"
+      : "Queued for extraction";
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-white/80">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-indigo-200">
+          {statusLabel}
+        </span>
+        {!isFailed ? (
+          <div className="flex min-w-40 flex-1 items-center gap-2 text-[11px]">
+            <div className="h-1.5 flex-1 rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-indigo-400 transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <span className="font-semibold tabular-nums">{progress}%</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="rounded-full border border-white/30 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-white transition hover:border-white/60"
+          >
+            Retry extraction
+          </button>
+        )}
+      </div>
+      {error ? <p className="mt-2 text-[11px] text-rose-200">{error}</p> : null}
+    </div>
+  );
+}
+
+type PendingTemplateStateProps = {
+  status?: DocumentRecord["processing_status"];
+  progress: number;
+};
+
+function PendingTemplateState({ status, progress }: PendingTemplateStateProps) {
+  const isFailed = status === "failed";
+  return (
+    <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-white/5 px-6 text-center text-sm text-slate-200">
+      <div className="flex items-center justify-center gap-2 text-xs uppercase tracking-[0.3em] text-indigo-200">
+        <Loader size={16} className="text-indigo-200" />
+        <span>{isFailed ? "Extraction failed" : "Preparing template"}</span>
+      </div>
+      <p className="mt-3 text-xs text-slate-300">
+        {isFailed ? "Retry extraction to continue." : "Hang tight while we map placeholders."}
+      </p>
+      <div className="mt-4 h-1.5 w-48 rounded-full bg-white/10">
+        <div className="h-full rounded-full bg-indigo-400 transition-all" style={{ width: `${progress}%` }} />
+      </div>
     </div>
   );
 }

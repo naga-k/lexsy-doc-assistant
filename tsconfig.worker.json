@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "Node16",
+    "moduleResolution": "node16",
+    "outDir": ".worker-dist",
+    "noEmit": false,
+    "allowImportingTsExtensions": false,
+    "rootDir": "./"
+  },
+  "include": [
+    "scripts/process-documents.ts",
+    "lib/**/*.ts"
+  ]
+}
