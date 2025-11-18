@@ -241,21 +241,60 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
   const outstandingCount = Math.max(placeholderStats.total - placeholderStats.filled, 0);
   const nextPlaceholder = placeholderStats.next;
 
+  const fetchGuidanceText = useCallback(
+    async (variant: "intro" | "placeholder", placeholderKey?: string) => {
+      try {
+        const response = await fetch(`/api/documents/${document.id}/guidance`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ variant, placeholderKey }),
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${variant} guidance`);
+        }
+        const data = (await response.json()) as { text?: string };
+        const text = data.text?.trim();
+        return text && text.length > 0 ? text : undefined;
+      } catch (guidanceError) {
+        console.warn("Unable to fetch guidance text", guidanceError);
+        return undefined;
+      }
+    },
+    [document.id]
+  );
+
   useEffect(() => {
     if (!hasHydratedMessages || hasSeededIntro) return;
-    if (messages.length === 0) {
-      setMessages([
-        buildIntroMessage({
-          documentTitle: document.filename,
-          outstandingCount,
-        }),
-      ]);
-    }
-    setHasSeededIntro(true);
+    let cancelled = false;
+
+    const seedIntro = async () => {
+      setHasSeededIntro(true);
+      if (messages.length > 0) {
+        return;
+      }
+      const remoteText = await fetchGuidanceText("intro");
+      if (cancelled) return;
+      const introMessage = remoteText
+        ? buildAssistantMessage(INTRO_MESSAGE_ID, remoteText)
+        : buildIntroMessage({
+            documentTitle: document.filename,
+            outstandingCount,
+          });
+      setMessages([introMessage]);
+    };
+
+    seedIntro();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     document.filename,
     hasHydratedMessages,
     hasSeededIntro,
+    fetchGuidanceText,
     messages.length,
     outstandingCount,
     setMessages,
@@ -271,20 +310,40 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
       return;
     }
 
-    const guidanceMessage = buildGuidanceMessage({
-      documentTitle: document.filename,
-      placeholder: nextPlaceholder,
-      outstandingCount,
-    });
+    let cancelled = false;
 
-    setMessages((prev) => {
-      if (hasGuidanceForKey(prev, guidanceKey)) {
-        return prev;
-      }
-      return prev.concat(guidanceMessage);
-    });
+    const seedGuidance = async () => {
+      const remoteText = guidanceKey ? await fetchGuidanceText("placeholder", guidanceKey) : undefined;
+      if (cancelled) return;
+
+      const resolvedGuidanceId =
+        getGuidanceMessageId(guidanceKey) ??
+        `guidance-${nextPlaceholder.key ?? nextPlaceholder.raw ?? nextPlaceholder.exampleContext ?? "placeholder"}`;
+
+      const guidanceMessage = remoteText
+        ? buildAssistantMessage(resolvedGuidanceId, remoteText)
+        : buildGuidanceMessage({
+            documentTitle: document.filename,
+            placeholder: nextPlaceholder,
+            outstandingCount,
+          });
+
+      setMessages((prev) => {
+        if (hasGuidanceForKey(prev, guidanceKey)) {
+          return prev;
+        }
+        return prev.concat(guidanceMessage);
+      });
+    };
+
+    seedGuidance();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     document.filename,
+    fetchGuidanceText,
     hasHydratedMessages,
     isBusy,
     messages,
@@ -296,7 +355,7 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
   return (
     <div className="flex flex-1 min-h-0 flex-col text-white">
       <div className="relative flex min-h-0 flex-1 flex-col rounded-[32px] border border-white/10 bg-slate-950/40">
-        <div className="relative flex-1 min-h-0 overflow-hidden">
+        <div className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           {isBusy ? (
             <div className="pointer-events-none absolute left-1/2 top-4 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-slate-950/90 px-3 py-1 text-xs font-medium text-white/80 shadow-xl">
               <Loader size={14} className="text-indigo-200" />
@@ -363,6 +422,19 @@ interface IntroMessageConfig {
   outstandingCount: number;
 }
 
+function buildAssistantMessage(id: string, text: string): UIMessage {
+  return {
+    id,
+    role: "assistant",
+    parts: [
+      {
+        type: "text",
+        text,
+      },
+    ],
+  } as UIMessage;
+}
+
 function buildIntroMessage({
   documentTitle,
   outstandingCount,
@@ -371,16 +443,10 @@ function buildIntroMessage({
     outstandingCount > 0
       ? `We still have ${outstandingCount} placeholder${outstandingCount === 1 ? "" : "s"} to lock down.`
       : "All placeholders are filled, so we can focus on polish, risk review, or summaries.";
-  return {
-    id: INTRO_MESSAGE_ID,
-    role: "assistant",
-    parts: [
-      {
-        type: "text",
-        text: `Hi, I'm Lexsy, your legal drafting copilot. I'll lead this working session for ${documentTitle}. ${remainingCopy} Tell me what you'd like to tackle first and I'll take the next step.`,
-      },
-    ],
-  } as UIMessage;
+  return buildAssistantMessage(
+    INTRO_MESSAGE_ID,
+    `Hi, I'm Lexsy, your legal drafting copilot. I'll lead this working session for ${documentTitle}. ${remainingCopy} Tell me what you'd like to tackle first and I'll take the next step.`
+  );
 }
 
 function getPlaceholderDisplayName(placeholder: Placeholder | null | undefined): string {
@@ -410,11 +476,18 @@ function formatPlaceholderLabel(value: string | undefined): string {
 }
 
 function hasGuidanceForKey(messages: UIMessage[], placeholderKey: string | null | undefined): boolean {
-  if (!placeholderKey) {
+  const guidanceId = getGuidanceMessageId(placeholderKey);
+  if (!guidanceId) {
     return false;
   }
-  const guidanceId = `guidance-${placeholderKey}`;
   return messages.some((message) => message.id === guidanceId);
+}
+
+function getGuidanceMessageId(placeholderKey: string | null | undefined): string | undefined {
+  if (!placeholderKey) {
+    return undefined;
+  }
+  return `guidance-${placeholderKey}`;
 }
 
 interface GuidanceMessageConfig {
@@ -436,16 +509,7 @@ function buildGuidanceMessage({
   const contextLine = context ? `I see it references ${context}.` : "Give me the exact wording you'd use.";
   const wrapUp = `Once we lock this in, ${remaining}.`;
 
-  return {
-    id: `guidance-${placeholderKey}`,
-    role: "assistant",
-    parts: [
-      {
-        type: "text",
-        text: `${intro} ${contextLine} ${wrapUp}`,
-      },
-    ],
-  } as UIMessage;
+  return buildAssistantMessage(`guidance-${placeholderKey}`, `${intro} ${contextLine} ${wrapUp}`);
 }
 
 function renderMessageText(message: UIMessage): string {
