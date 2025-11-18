@@ -39,6 +39,17 @@ body {
   margin-right: auto;
 }
 
+.superdoc-host {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.superdoc-host .superdoc {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .lexsy-chat-input-group {
   position: relative;
   isolation: isolate;

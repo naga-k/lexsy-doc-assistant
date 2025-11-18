@@ -39,7 +39,6 @@ export function SuperDocViewer({
   onStatusChange,
 }: SuperDocViewerProps) {
   const containerIdRef = useRef(`superdoc-container-${Math.random().toString(36).slice(2)}`);
-  const toolbarIdRef = useRef(`superdoc-toolbar-${Math.random().toString(36).slice(2)}`);
   const superdocRef = useRef<SuperDocHandle | null>(null);
   const [status, setStatus] = useState<SuperDocViewerStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +94,6 @@ export function SuperDocViewer({
         const instance = new SuperDoc({
           selector: `#${containerIdRef.current}`,
           document: resolvedDocumentUrl,
-          toolbar: `#${toolbarIdRef.current}`,
           role: resolvedRole,
           documentMode: resolvedMode,
           user: {
@@ -145,12 +143,11 @@ export function SuperDocViewer({
     <div className={clsx("flex h-full flex-col gap-2", className)}>
       {canShowViewer ? (
         <>
-          <div
-            id={toolbarIdRef.current}
-            className="min-h-[40px] rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80"
-          />
           <div className="relative flex-1 min-h-[280px] rounded-3xl border border-white/15 bg-slate-950/70">
-            <div id={containerIdRef.current} className="h-full w-full overflow-auto rounded-3xl" />
+            <div
+              id={containerIdRef.current}
+              className="superdoc-host h-full w-full overflow-auto rounded-3xl"
+            />
             <div className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.25em]">
               <span className="rounded-full border border-white/15 bg-slate-950/70 px-3 py-1 text-white/80">
                 {STATUS_LABELS[status]}
