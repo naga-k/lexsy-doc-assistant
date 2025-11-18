@@ -1,4 +1,4 @@
-import { sql, type SQL } from "@vercel/postgres";
+import { sql } from "@vercel/postgres";
 import type {
   ExtractedTemplate,
   DocumentProcessingStatus,
@@ -140,32 +140,29 @@ export async function updateTemplateJson(
 ): Promise<InternalDocumentRecord | null> {
   await ensureDocumentsTable();
   const templateJson = JSON.stringify(template);
-  const fields = [sql`template_json = ${templateJson}::jsonb`];
+  const assignments: UpdateAssignment[] = [
+    { column: "template_json", value: templateJson, cast: "jsonb" },
+  ];
   if (typeof options?.processing_status !== "undefined") {
-    fields.push(sql`processing_status = ${options.processing_status}`);
+    assignments.push({ column: "processing_status", value: options.processing_status });
   }
   if (typeof options?.processing_progress !== "undefined") {
-    fields.push(sql`processing_progress = ${options.processing_progress}`);
+    assignments.push({ column: "processing_progress", value: options.processing_progress });
   }
   if (typeof options?.processing_total_chunks !== "undefined") {
-    fields.push(sql`processing_total_chunks = ${options.processing_total_chunks}`);
+    assignments.push({ column: "processing_total_chunks", value: options.processing_total_chunks });
   }
   if (typeof options?.processing_next_chunk !== "undefined") {
-    fields.push(sql`processing_next_chunk = ${options.processing_next_chunk}`);
+    assignments.push({ column: "processing_next_chunk", value: options.processing_next_chunk });
   }
   if (typeof options?.processing_error !== "undefined") {
-    fields.push(sql`processing_error = ${options.processing_error}`);
+    assignments.push({ column: "processing_error", value: options.processing_error });
   }
   if (typeof options?.plain_text !== "undefined") {
-    fields.push(sql`plain_text = ${options.plain_text}`);
+    assignments.push({ column: "plain_text", value: options.plain_text });
   }
-  const setClause = joinSqlFields(fields);
-  const result = await sql<DocumentRow>`
-    UPDATE documents
-    SET ${setClause}
-    WHERE id = ${id}
-    RETURNING *;
-  `;
+  const { text, values } = buildUpdateStatement(assignments, id);
+  const result = await sql.query<DocumentRow>(text, values);
   if (!result.rows[0]) {
     return null;
   }
@@ -185,40 +182,35 @@ export async function updateDocumentProcessingState(
   }>
 ): Promise<InternalDocumentRecord | null> {
   await ensureDocumentsTable();
-  const fields = [] as ReturnType<typeof sql>[];
+  const assignments: UpdateAssignment[] = [];
   if (typeof updates.processing_status !== "undefined") {
-    fields.push(sql`processing_status = ${updates.processing_status}`);
+    assignments.push({ column: "processing_status", value: updates.processing_status });
   }
   if (typeof updates.processing_progress !== "undefined") {
-    fields.push(sql`processing_progress = ${updates.processing_progress}`);
+    assignments.push({ column: "processing_progress", value: updates.processing_progress });
   }
   if (typeof updates.processing_total_chunks !== "undefined") {
-    fields.push(sql`processing_total_chunks = ${updates.processing_total_chunks}`);
+    assignments.push({ column: "processing_total_chunks", value: updates.processing_total_chunks });
   }
   if (typeof updates.processing_next_chunk !== "undefined") {
-    fields.push(sql`processing_next_chunk = ${updates.processing_next_chunk}`);
+    assignments.push({ column: "processing_next_chunk", value: updates.processing_next_chunk });
   }
   if (typeof updates.processing_error !== "undefined") {
-    fields.push(sql`processing_error = ${updates.processing_error}`);
+    assignments.push({ column: "processing_error", value: updates.processing_error });
   }
   if (typeof updates.plain_text !== "undefined") {
-    fields.push(sql`plain_text = ${updates.plain_text}`);
+    assignments.push({ column: "plain_text", value: updates.plain_text });
   }
   if (typeof updates.template_json !== "undefined") {
     const templateJson = JSON.stringify(updates.template_json);
-    fields.push(sql`template_json = ${templateJson}::jsonb`);
+    assignments.push({ column: "template_json", value: templateJson, cast: "jsonb" });
   }
-  if (fields.length === 0) {
+  if (assignments.length === 0) {
     const current = await getDocumentById(id, { includePlainText: true });
     return current as InternalDocumentRecord | null;
   }
-  const setClause = joinSqlFields(fields);
-  const result = await sql<DocumentRow>`
-    UPDATE documents
-    SET ${setClause}
-    WHERE id = ${id}
-    RETURNING *;
-  `;
+  const { text, values } = buildUpdateStatement(assignments, id);
+  const result = await sql.query<DocumentRow>(text, values);
   if (!result.rows[0]) {
     return null;
   }
@@ -259,10 +251,54 @@ export function stripPrivateDocumentFields(record: InternalDocumentRecord): Docu
   return publicFields;
 }
 
-function joinSqlFields(fields: SQL[]): SQL {
-  if (fields.length === 0) {
-    throw new Error("joinSqlFields requires at least one SQL fragment");
+type UpdateAssignment = {
+  column:
+    | "template_json"
+    | "processing_status"
+    | "processing_progress"
+    | "processing_total_chunks"
+    | "processing_next_chunk"
+    | "processing_error"
+    | "plain_text";
+  value: string | number | boolean | null;
+  cast?: "jsonb";
+};
+
+function buildUpdateStatement(assignments: UpdateAssignment[], id: string) {
+  if (assignments.length === 0) {
+    throw new Error("buildUpdateStatement requires at least one assignment");
   }
-  const [first, ...rest] = fields;
-  return rest.reduce<SQL>((acc, field) => sql`${acc}, ${field}`, first);
+  const fragments: string[] = [];
+  const values: Array<string | number | boolean | null> = [];
+  assignments.forEach(({ column, value, cast }) => {
+    values.push(value);
+    const placeholderIndex = values.length;
+    const castSuffix = cast ? `::${cast}` : "";
+    fragments.push(`${column} = $${placeholderIndex}${castSuffix}`);
+  });
+  const wherePlaceholder = `$${values.length + 1}`;
+  const text = `UPDATE documents SET ${fragments.join(", ")} WHERE id = ${wherePlaceholder} RETURNING *;`;
+  return { text, values: values.concat(id) };
+}
+
+export async function findDocumentsNeedingProcessing(
+  options?: {
+    limit?: number;
+    includePlainText?: boolean;
+  }
+): Promise<Array<InternalDocumentRecord | DocumentRecord>> {
+  await ensureDocumentsTable();
+  const limit = Math.max(options?.limit ?? 1, 1);
+  const result = await sql<DocumentRow>`
+    SELECT *
+    FROM documents
+    WHERE processing_status IN ('pending', 'processing')
+    ORDER BY created_at ASC
+    LIMIT ${limit};
+  `;
+  const records = result.rows.map((row) => normalizeRecord(row));
+  if (options?.includePlainText) {
+    return records;
+  }
+  return records.map(stripPrivateDocumentFields);
 }

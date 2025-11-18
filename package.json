@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "process-docs:build": "tsc -p tsconfig.worker.json",
+    "process-docs": "npm run process-docs:build && node .worker-dist/scripts/process-documents.js"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.67",
@@ -29,6 +31,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "dotenv": "^16.4.5",
     "embla-carousel-react": "^8.6.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.553.0",

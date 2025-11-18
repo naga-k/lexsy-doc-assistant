@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // Generated UI libraries
     "components/ai-elements/**",
     "components/ui/**",
+    // Worker build output
+    ".worker-dist/**",
   ]),
 ]);
 
