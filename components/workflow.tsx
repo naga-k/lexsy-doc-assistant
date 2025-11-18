@@ -244,6 +244,11 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
 
   const outstandingCount = Math.max(placeholderStats.total - placeholderStats.filled, 0);
   const nextPlaceholder = placeholderStats.next;
+  const nextPlaceholderKey = nextPlaceholder?.key ?? null;
+  const hasGuidanceForNextPlaceholder = useMemo(
+    () => hasGuidanceForKey(messages, nextPlaceholderKey),
+    [messages, nextPlaceholderKey]
+  );
 
   const fetchGuidanceText = useCallback(
     async (variant: "intro" | "placeholder", placeholderKey?: string) => {
@@ -308,37 +313,78 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
     if (!hasHydratedMessages) return;
     if (!nextPlaceholder) return;
     if (isBusy) return;
+    if (hasGuidanceForNextPlaceholder) return;
 
     const guidanceKey = nextPlaceholder.key;
-    if (hasGuidanceForKey(messages, guidanceKey)) {
-      return;
-    }
+
+    const resolvedGuidanceId =
+      getGuidanceMessageId(guidanceKey) ??
+      `guidance-${
+        nextPlaceholder.key ?? nextPlaceholder.raw ?? nextPlaceholder.description ?? "placeholder"
+      }`;
+    const pendingGuidanceId = `pending-${resolvedGuidanceId}`;
+    const placeholderSnapshot = nextPlaceholder;
+    let pendingInserted = false;
+    let pendingCleared = false;
+
+    const removePendingMessage = () => {
+      if (!pendingInserted || pendingCleared) {
+        return;
+      }
+      pendingCleared = true;
+      setMessages((prev) => {
+        if (!prev.some((message) => message.id === pendingGuidanceId)) {
+          return prev;
+        }
+        return prev.filter((message) => message.id !== pendingGuidanceId);
+      });
+    };
+
+    setMessages((prev) => {
+      if (prev.some((message) => message.id === resolvedGuidanceId)) {
+        return prev;
+      }
+      if (prev.some((message) => message.id === pendingGuidanceId)) {
+        pendingInserted = true;
+        return prev;
+      }
+      pendingInserted = true;
+      return prev.concat(
+        buildPendingGuidanceMessage({
+          id: pendingGuidanceId,
+          placeholder: placeholderSnapshot,
+        })
+      );
+    });
 
     let cancelled = false;
-
     const seedGuidance = async () => {
       const remoteText = guidanceKey ? await fetchGuidanceText("placeholder", guidanceKey) : undefined;
       if (cancelled) return;
-
-      const resolvedGuidanceId =
-        getGuidanceMessageId(guidanceKey) ??
-        `guidance-${
-          nextPlaceholder.key ?? nextPlaceholder.raw ?? nextPlaceholder.description ?? "placeholder"
-        }`;
 
       const guidanceMessage = remoteText
         ? buildAssistantMessage(resolvedGuidanceId, remoteText)
         : buildGuidanceMessage({
             documentTitle: document.filename,
-            placeholder: nextPlaceholder,
-            outstandingCount,
+            placeholder: placeholderSnapshot,
           });
 
       setMessages((prev) => {
-        if (hasGuidanceForKey(prev, guidanceKey)) {
-          return prev;
+        let replacedPending = false;
+        const withoutPending = prev.map((message) => {
+          if (message.id === pendingGuidanceId) {
+            replacedPending = true;
+            pendingCleared = true;
+            return guidanceMessage;
+          }
+          return message;
+        });
+
+        if (hasGuidanceForKey(withoutPending, guidanceKey)) {
+          return withoutPending;
         }
-        return prev.concat(guidanceMessage);
+
+        return replacedPending ? withoutPending : withoutPending.concat(guidanceMessage);
       });
     };
 
@@ -346,15 +392,16 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
 
     return () => {
       cancelled = true;
+      removePendingMessage();
     };
   }, [
     document.filename,
     fetchGuidanceText,
+    hasGuidanceForNextPlaceholder,
     hasHydratedMessages,
     isBusy,
-    messages,
     nextPlaceholder,
-    outstandingCount,
+    nextPlaceholderKey,
     setMessages,
   ]);
 
@@ -509,23 +556,83 @@ function getGuidanceMessageId(placeholderKey: string | null | undefined): string
 interface GuidanceMessageConfig {
   documentTitle: string;
   placeholder: Placeholder;
-  outstandingCount: number;
 }
 
 function buildGuidanceMessage({
   documentTitle,
   placeholder,
-  outstandingCount,
 }: GuidanceMessageConfig): UIMessage {
   const label = getPlaceholderDisplayName(placeholder);
-  const context = placeholder.description?.trim();
-  const placeholderKey = placeholder.key ?? label;
-  const remaining = outstandingCount > 1 ? `${outstandingCount - 1} more after this` : "this is the final field";
-  const intro = `Let's capture ${label} for ${documentTitle}.`;
-  const contextLine = context ? `I see it references ${context}.` : "Give me the exact wording you'd use.";
-  const wrapUp = `Once we lock this in, ${remaining}.`;
+  const placeholderKey = placeholder.key ?? formatGuidanceId(label);
+  const requiredSuffix = placeholder.required ? " (required)" : "";
+  const intro = `Please provide ${label}${requiredSuffix}.`;
+  const detail = buildPlaceholderDetail({ placeholder, documentTitle });
 
-  return buildAssistantMessage(`guidance-${placeholderKey}`, `${intro} ${contextLine} ${wrapUp}`);
+  return buildAssistantMessage(`guidance-${placeholderKey}`, `${intro}\n${detail}`.trim());
+}
+
+function buildPlaceholderDetail({
+  placeholder,
+  documentTitle,
+}: {
+  placeholder: Placeholder;
+  documentTitle: string;
+}): string {
+  const context = placeholder.description?.trim();
+  if (context) {
+    return ensureSentence(context);
+  }
+
+  switch (placeholder.type) {
+    case "MONEY":
+      return "Enter an amount with a currency symbol and commas, e.g., $100,000.00.";
+    case "NUMBER":
+      return "Provide a numeric value; include units or commas if they improve clarity.";
+    case "PERCENT":
+      return "Share a percentage such as 12.5% or write it out if needed.";
+    case "DATE":
+      return "Use YYYY-MM-DD or spell out the date in your preferred legal format.";
+    case "STRING":
+    default:
+      return `Give the exact wording you want reflected in ${documentTitle}.`;
+  }
+}
+
+function ensureSentence(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
+function formatGuidanceId(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-")
+    || "placeholder";
+}
+
+function buildPendingGuidanceMessage({
+  id,
+  placeholder,
+}: {
+  id: string;
+  placeholder: Placeholder;
+}): UIMessage {
+  const label = getPlaceholderDisplayName(placeholder);
+  return {
+    id,
+    role: "assistant",
+    parts: [
+      {
+        type: "pending-guidance",
+        placeholderLabel: label,
+      } as unknown as UIMessage["parts"][number],
+    ],
+  } as UIMessage;
 }
 
 type ChatStatus = ReturnType<typeof useChat>["status"];
@@ -601,6 +708,22 @@ function renderMessageParts({
       if (hint) {
         hintBlocks.push(hint);
       }
+      return;
+    }
+
+    if (
+      part &&
+      typeof part === "object" &&
+      (part as { type?: string }).type === "pending-guidance"
+    ) {
+      const pendingPart = part as { placeholderLabel?: string };
+      hintBlocks.push(
+        <PendingGuidanceHint
+          key={`${message.id ?? "message"}-pending-${index}`}
+          label={pendingPart.placeholderLabel}
+        />
+      );
+      return;
     }
   });
 
@@ -662,6 +785,16 @@ function ReasoningHint() {
     <div className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs text-white/70">
       <Loader size={10} className="text-indigo-200" />
       Thinking through the next step…
+    </div>
+  );
+}
+
+function PendingGuidanceHint({ label }: { label?: string }) {
+  const resolved = label ? label.toLowerCase() : "this field";
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs text-white/70">
+      <Loader size={10} className="text-indigo-200" />
+      <span>Thinking about {resolved}…</span>
     </div>
   );
 }
@@ -834,6 +967,7 @@ export function PlaceholderTable({
       setRowError("Enter a value before saving.");
       return;
     }
+
     setSavingKey(editingKey);
     setRowError(null);
     try {

@@ -370,23 +370,23 @@ function useOptimisticProgress(progress: number, totalChunks: number, isActive: 
       return;
     }
 
-    const chunkFraction = totalChunks > 0 ? 100 / totalChunks : 5;
+    const chunkFraction = totalChunks > 0 ? 100 / totalChunks : 3;
     const intervalId = window.setInterval(() => {
       setDisplayProgress((current) => {
         const stallSeconds = (Date.now() - lastServerUpdateRef.current) / 1000;
-        const baseLead = chunkFraction * 1.25;
-        const stallLead = stallSeconds * chunkFraction * 0.35;
-        const maxLead = Math.min(95 - progress, baseLead + stallLead);
-        const optimisticTarget = Math.min(99, progress + maxLead);
+        const baseLead = chunkFraction * 0.6;
+        const stallLead = Math.min(stallSeconds, 8) * chunkFraction * 0.25;
+        const maxLead = Math.min(93 - progress, baseLead + stallLead);
+        const optimisticTarget = Math.min(98, progress + maxLead);
 
         if (current >= optimisticTarget) {
           return current;
         }
 
-        const step = Math.max(0.2, chunkFraction / 8);
+        const step = Math.max(0.1, chunkFraction / 16);
         return Math.min(optimisticTarget, current + step);
       });
-    }, 600);
+    }, 900);
 
     return () => {
       window.clearInterval(intervalId);

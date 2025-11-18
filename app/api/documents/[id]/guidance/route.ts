@@ -6,6 +6,8 @@ import type { Placeholder } from "@/lib/types";
 
 export const maxDuration = 30;
 
+const GUIDANCE_LOG_PREFIX = "[guidance]";
+
 const INTRO_SYSTEM_PROMPT = joinPrompt([
   "You are Lexsy, a concise legal drafting co-pilot.",
   "Respond with exactly two short sentences (≤18 words each).",
@@ -49,13 +51,27 @@ export async function POST(
   }
   const outstandingPlaceholders = template.placeholders.filter((placeholder) => !placeholder.value);
 
+  logGuidanceEvent("request", {
+    docId: id,
+    variant: body.variant,
+    placeholderKey: body.placeholderKey,
+    outstandingCount: outstandingPlaceholders.length,
+  });
+
   try {
     if (body.variant === "intro") {
       const stream = await streamIntroText({
+        docId: id,
         filename: document.filename,
         outstandingPlaceholders,
       });
       const text = (await stream.text).trim();
+      logGuidanceEvent("response", {
+        docId: id,
+        variant: body.variant,
+        text,
+        length: text.length,
+      });
       return NextResponse.json({ text });
     }
 
@@ -65,10 +81,18 @@ export async function POST(
     }
 
     const stream = await streamPlaceholderText({
+      docId: id,
       filename: document.filename,
       placeholder,
     });
     const text = (await stream.text).trim();
+    logGuidanceEvent("response", {
+      docId: id,
+      variant: body.variant,
+      placeholderKey: body.placeholderKey,
+      text,
+      length: text.length,
+    });
     return NextResponse.json({ text });
   } catch (error) {
     console.error("Guidance generation failed", error);
@@ -77,11 +101,13 @@ export async function POST(
 }
 
 interface IntroPromptConfig {
+  docId: string;
   filename: string;
   outstandingPlaceholders: Placeholder[];
 }
 
 async function streamIntroText({
+  docId,
   filename,
   outstandingPlaceholders,
 }: IntroPromptConfig) {
@@ -100,6 +126,13 @@ async function streamIntroText({
     "- Sentence 2: suggest tackling one of the focus fields or offer an alternative next step. Avoid counts or promises like 'I'll handle the rest'.",
   ]);
 
+  logGuidanceEvent("prompt", {
+    docId,
+    variant: "intro",
+    prompt,
+    systemPrompt: INTRO_SYSTEM_PROMPT,
+  });
+
   return streamText({
     model: openai("gpt-5-mini"),
     system: INTRO_SYSTEM_PROMPT,
@@ -108,11 +141,13 @@ async function streamIntroText({
 }
 
 interface PlaceholderPromptConfig {
+  docId: string;
   filename: string;
   placeholder: Placeholder;
 }
 
 async function streamPlaceholderText({
+  docId,
   filename,
   placeholder,
 }: PlaceholderPromptConfig) {
@@ -128,6 +163,17 @@ async function streamPlaceholderText({
     "- Sentence 1: ask for the specific value with the display label.",
     "- Sentence 2: provide a formatting hint or quick clarification. Do not mention remaining work or say you'll handle it.",
   ]);
+
+  logGuidanceEvent("prompt", {
+    docId,
+    variant: "placeholder",
+    placeholderKey: placeholder.key,
+    prompt,
+    systemPrompt: PLACEHOLDER_SYSTEM_PROMPT,
+    placeholderLabel: label,
+    placeholderDescription: placeholder.description ?? null,
+    required: placeholder.required ?? false,
+  });
 
   return streamText({
     model: openai("gpt-5-mini"),
@@ -159,4 +205,8 @@ function sanitizeLabel(value: string | undefined): string {
 
 function joinPrompt(lines: ReadonlyArray<string>): string {
   return lines.map((line) => line.trim()).filter(Boolean).join("\n");
+}
+
+function logGuidanceEvent(event: string, payload: Record<string, unknown>) {
+  console.info(`${GUIDANCE_LOG_PREFIX} ${event}`, payload);
 }
