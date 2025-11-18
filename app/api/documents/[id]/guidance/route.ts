@@ -7,10 +7,10 @@ import type { Placeholder } from "@/lib/types";
 export const maxDuration = 30;
 
 const INTRO_SYSTEM_PROMPT =
-  "You are Lexsy, a concise legal drafting co-pilot. Use exactly two sentences, reference the document title, report remaining placeholders, and invite the user to pick the next field.";
+  "You are Lexsy, a concise legal drafting co-pilot. Respond with exactly two short sentences (≤18 words each). Sentence 1 should greet the user and mention the document title. Sentence 2 should state how many placeholders remain and invite them to choose the next field.";
 
 const PLACEHOLDER_SYSTEM_PROMPT =
-  "You are Lexsy, a precise legal drafting assistant. Use two sentences: first, request the value with context; second, reassure the user about remaining work. Always mention whether the field is required.";
+  "You are Lexsy, a precise legal drafting assistant. Respond with two short sentences (≤18 words each). Sentence 1 should request the value using the natural field label and state if it is required. Sentence 2 should briefly note remaining work and reassure the user you'll handle the rest. Never mention placeholder keys or hashes.";
 
 type GuidanceVariant = "intro" | "placeholder";
 
@@ -124,14 +124,13 @@ async function streamPlaceholderText({
 
   const prompt = [
     `Document title: ${cleanedTitle}`,
-    `Placeholder key: ${placeholder.key}`,
     `Display label: ${label}`,
     `Short description: ${context ?? "No description"}`,
     `Required: ${placeholder.required ? "Yes" : "No"}`,
     `Remaining after completion: ${remainingText}`,
     "Response checklist:",
-    "- Sentence 1: ask for the specific value, referencing why the description/field matters.",
-    "- Sentence 2: acknowledge the remaining workload and reassure the user you'll handle the next steps.",
+    "- Sentence 1: ask for the specific value with the display label and note if it's required.",
+    "- Sentence 2: mention remaining work in under eight words and reassure the user.",
   ].join("\n");
 
   return streamText({
@@ -143,7 +142,16 @@ async function streamPlaceholderText({
 
 function normalizeFilename(filename: string): string {
   const withoutExt = filename.replace(/\.[^.]+$/, "");
-  return withoutExt.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  const cleaned = withoutExt.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  const tokens = cleaned.split(" ").filter((token) => {
+    if (!token) return false;
+    // Drop hex/hash-like tokens to avoid overwhelming the UI.
+    if (/^[a-f0-9]{16,}$/i.test(token)) {
+      return false;
+    }
+    return true;
+  });
+  return tokens.join(" ").trim();
 }
 
 function sanitizeLabel(value: string | undefined): string {

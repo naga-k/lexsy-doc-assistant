@@ -574,7 +574,7 @@ function renderMessageParts({
     }
 
     if (part.type === "source-url" || part.type === "source-document") {
-      const label = part.title ?? part.url ?? part.sourceId;
+      const label = part.title ?? ("url" in part ? part.url : undefined) ?? part.sourceId;
       if (label) {
         textBlocks.push(label);
       }
@@ -653,7 +653,7 @@ function renderMessageText(message: UIMessage): string {
     .join(" ");
 }
 
-type ToolUIPart = {
+type ToolUIPart = UIMessage["parts"][number] & {
   type: string;
   state?: string;
   toolName?: string;
