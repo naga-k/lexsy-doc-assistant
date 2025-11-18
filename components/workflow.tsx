@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
@@ -224,6 +224,7 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
   );
 
   const isBusy = status === "submitted" || status === "streaming";
+  const lastAssistantMessageId = useMemo(() => getLastAssistantMessageId(messages), [messages]);
   const placeholderStats = useMemo(() => {
     const placeholders = document.template_json?.placeholders ?? [];
     let filled = 0;
@@ -383,16 +384,18 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
             ) : (
               <ConversationContent className="gap-5 p-5 sm:p-7">
                 {messages.map((message, index) => {
-                  const renderedText = renderMessageText(message).trim();
-                  if (!renderedText) {
+                  const parts = renderMessageParts({
+                    message,
+                    status,
+                    lastAssistantMessageId,
+                  });
+                  if (!parts || parts.length === 0) {
                     return null;
                   }
 
                   return (
                     <ChatMessage key={message.id ?? `${message.role}-${index}`} from={message.role}>
-                      <MessageContent>
-                        <MessageResponse>{renderedText}</MessageResponse>
-                      </MessageContent>
+                      <MessageContent>{parts}</MessageContent>
                     </ChatMessage>
                   );
                 })}
@@ -528,6 +531,107 @@ function buildGuidanceMessage({
   return buildAssistantMessage(`guidance-${placeholderKey}`, `${intro} ${contextLine} ${wrapUp}`);
 }
 
+type ChatStatus = ReturnType<typeof useChat>["status"];
+
+function renderMessageParts({
+  message,
+  status,
+  lastAssistantMessageId,
+}: {
+  message: UIMessage;
+  status: ChatStatus;
+  lastAssistantMessageId?: string;
+}): ReactNode[] | null {
+  const fallbackContent = renderMessageText(message).trim();
+  const hasStructuredParts = Boolean(message.parts && message.parts.length > 0);
+  if (!hasStructuredParts) {
+    if (!fallbackContent) {
+      return null;
+    }
+    return [
+      <MessageResponse key={`${message.id ?? "message"}-text`}>
+        {fallbackContent}
+      </MessageResponse>,
+    ];
+  }
+
+  const isLatestAssistantMessage =
+    message.role === "assistant" &&
+    Boolean(message.id) &&
+    Boolean(lastAssistantMessageId) &&
+    message.id === lastAssistantMessageId;
+
+  const textBlocks: string[] = [];
+  const hintBlocks: ReactNode[] = [];
+
+  message.parts!.forEach((part, index) => {
+    if (part.type === "text") {
+      const text = part.text?.trim();
+      if (text) {
+        textBlocks.push(text);
+      }
+      return;
+    }
+
+    if (part.type === "source-url" || part.type === "source-document") {
+      const label = part.title ?? part.url ?? part.sourceId;
+      if (label) {
+        textBlocks.push(label);
+      }
+      return;
+    }
+
+    if (part.type === "reasoning") {
+      const isStreamingPart =
+        status === "streaming" &&
+        isLatestAssistantMessage &&
+        index === message.parts!.length - 1;
+      if (!isStreamingPart) {
+        return;
+      }
+      hintBlocks.push(
+        <ReasoningHint key={`${message.id ?? "message"}-reasoning-${index}`} />
+      );
+      return;
+    }
+
+    if (isToolUIPart(part)) {
+      const hint = buildToolHint({
+        part,
+        messageId: message.id,
+        partIndex: index,
+      });
+      if (hint) {
+        hintBlocks.push(hint);
+      }
+    }
+  });
+
+  const content: ReactNode[] = [];
+  const combinedText = textBlocks.join("\n\n").trim();
+  if (combinedText) {
+    content.push(
+      <MessageResponse key={`${message.id ?? "message"}-text`}>
+        {combinedText}
+      </MessageResponse>
+    );
+  }
+
+  if (hintBlocks.length > 0) {
+    content.push(...hintBlocks);
+  }
+
+  if (content.length === 0 && fallbackContent) {
+    return [
+      <MessageResponse key={`${message.id ?? "message"}-text-fallback`}>
+        {fallbackContent}
+      </MessageResponse>,
+    ];
+  }
+
+  return content.length > 0 ? content : null;
+}
+
 function renderMessageText(message: UIMessage): string {
   if (!message.parts || message.parts.length === 0) {
     return "";
@@ -538,24 +642,125 @@ function renderMessageText(message: UIMessage): string {
       switch (part.type) {
         case "text":
           return part.text;
-        case "reasoning":
-          return "";
         case "source-url":
           return part.title ?? part.url ?? part.sourceId;
         case "source-document":
           return part.title ?? part.sourceId;
-        case "tool-call":
-        case "tool-result":
-        case "step-start":
-          return "";
         default:
-          if (part.type?.startsWith?.("tool-")) {
-            return "";
-          }
-          return `[${part.type}]`;
+          return "";
       }
     })
     .join(" ");
+}
+
+type ToolUIPart = {
+  type: string;
+  state?: string;
+  toolName?: string;
+  errorText?: string;
+};
+
+function ReasoningHint() {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs text-white/70">
+      <Loader size={10} className="text-indigo-200" />
+      Thinking through the next step…
+    </div>
+  );
+}
+
+function isToolUIPart(part: UIMessage["parts"][number]): part is ToolUIPart {
+  if (!part || typeof part !== "object") {
+    return false;
+  }
+  if (typeof part.type !== "string") {
+    return false;
+  }
+  return (
+    part.type === "tool-call" ||
+    part.type === "tool-result" ||
+    part.type === "dynamic-tool" ||
+    part.type.startsWith("tool-")
+  );
+}
+
+function buildToolHint({
+  part,
+  messageId,
+  partIndex,
+}: {
+  part: ToolUIPart;
+  messageId?: string;
+  partIndex: number;
+}): ReactNode | null {
+  const toolState = formatToolHint(part.state);
+  if (!toolState) {
+    return null;
+  }
+
+  const key = `${messageId ?? "message"}-tool-${partIndex}`;
+  const toneClasses =
+    toolState.variant === "error"
+      ? "text-rose-200"
+      : "text-white/70";
+
+  return (
+    <div
+      key={key}
+      className="inline-flex flex-wrap items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs"
+    >
+      {toolState.showSpinner ? <Loader size={10} className="text-indigo-200" /> : null}
+      <span className={clsx("font-semibold", toneClasses)}>
+        {formatToolDisplayName(part.toolName ?? part.type)}
+      </span>
+      <span className={toneClasses}>{toolState.label}</span>
+      {toolState.variant === "error" && part.errorText ? (
+        <span className="text-rose-300">{part.errorText}</span>
+      ) : null}
+    </div>
+  );
+}
+
+function formatToolDisplayName(value: string | undefined): string {
+  if (!value) {
+    return "Tool";
+  }
+  const cleaned = value.replace(/^tool-/, "");
+  return cleaned
+    .split(/[-_]/g)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+}
+
+function formatToolHint(state?: string):
+  | {
+      label: string;
+      variant: "neutral" | "error";
+      showSpinner: boolean;
+    }
+  | null {
+  switch (state) {
+    case "input-streaming":
+      return { label: "gathering info", variant: "neutral", showSpinner: true };
+    case "input-available":
+      return { label: "queued", variant: "neutral", showSpinner: true };
+    case "output-error":
+      return { label: "needs another try", variant: "error", showSpinner: false };
+    case "output-available":
+      return null; // already done; no need to surface
+    default:
+      return { label: "working", variant: "neutral", showSpinner: true };
+  }
+}
+
+function getLastAssistantMessageId(messages: UIMessage[]): string | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const candidate = messages[index];
+    if (candidate.role === "assistant" && candidate.id) {
+      return candidate.id;
+    }
+  }
+  return undefined;
 }
 
 export function DocumentPreviewWindow({ template }: { template: ExtractedTemplate | null }) {

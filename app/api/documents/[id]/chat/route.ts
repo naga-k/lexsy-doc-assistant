@@ -57,5 +57,6 @@ export async function POST(
     headers: {
       "x-template-updated": hasTemplateUpdates() ? "1" : "0",
     },
+    sendReasoning: true,
   });
 }
