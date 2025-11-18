@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
 import { processDocument, requestDocument } from "@/lib/client-documents";
@@ -153,6 +153,12 @@ function FillPageContent() {
 
   const isProcessing = document ? document.processing_status !== "ready" : false;
   const isProcessingFailed = document?.processing_status === "failed";
+  const totalChunks = document?.processing_total_chunks ?? 0;
+  const animatedProgress = useOptimisticProgress(
+    document?.processing_progress ?? 0,
+    totalChunks,
+    isProcessing && !isProcessingFailed
+  );
 
   return (
     <div className="flex h-full flex-1 min-h-0 flex-col gap-1 overflow-hidden px-2 py-4 sm:px-4 lg:px-5">
@@ -167,7 +173,7 @@ function FillPageContent() {
           {document ? (
             <ProcessingBanner
               status={document.processing_status}
-              progress={document.processing_progress}
+              progress={animatedProgress}
               error={isProcessingFailed ? document.processing_error ?? processingError : processingError}
               onRetry={handleRetryProcessing}
             />
@@ -183,7 +189,7 @@ function FillPageContent() {
             <div className="flex min-h-0 flex-col gap-3 overflow-hidden p-1 sm:p-2">
               <div className="flex-1 min-h-0 overflow-hidden">
                 {isProcessing ? (
-                  <PendingTemplateState status={document?.processing_status} progress={document?.processing_progress ?? 0} />
+                  <PendingTemplateState status={document?.processing_status} progress={animatedProgress} />
                 ) : activePane === "document" ? (
                   <DocumentPreviewWindow template={template} />
                 ) : (
@@ -291,7 +297,7 @@ function ProcessingBanner({ status, progress, error, onRetry }: ProcessingBanner
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <span className="font-semibold tabular-nums">{progress}%</span>
+            <span className="font-semibold tabular-nums">{Math.round(progress)}%</span>
           </div>
         ) : (
           <button
@@ -329,6 +335,49 @@ function PendingTemplateState({ status, progress }: PendingTemplateStateProps) {
       </div>
     </div>
   );
+}
+
+function useOptimisticProgress(progress: number, totalChunks: number, isActive: boolean) {
+  const [displayProgress, setDisplayProgress] = useState(progress);
+  const displayRef = useRef(progress);
+
+  useEffect(() => {
+    setDisplayProgress(progress);
+  }, [progress]);
+
+  useEffect(() => {
+    displayRef.current = displayProgress;
+  }, [displayProgress]);
+
+  useEffect(() => {
+    if (!isActive) {
+      setDisplayProgress(progress);
+      return;
+    }
+
+    const chunkFraction = totalChunks > 0 ? 100 / totalChunks : 6;
+    const optimisticCap = Math.min(99, progress + chunkFraction * 0.85);
+    const step = Math.max(0.15, chunkFraction / 12);
+
+    if (displayRef.current >= optimisticCap) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setDisplayProgress((current) => {
+        if (current >= optimisticCap) {
+          return current;
+        }
+        return Math.min(current + step, optimisticCap);
+      });
+    }, 750);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isActive, progress, totalChunks]);
+
+  return Math.min(100, Math.max(0, displayProgress));
 }
 
 function FillPageFallback() {
