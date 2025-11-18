@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { DocumentRecord } from "@/lib/types";
@@ -47,23 +48,19 @@ export default function HomePage() {
   return (
     <div className="lexsy-shell flex min-h-screen flex-col">
       <header className="lexsy-nav">
-        <div className="mx-auto flex w-full items-center justify-between px-4 py-4 sm:py-5">
-          <Link href="/" className="flex items-center gap-3">
+        <div className="mx-auto flex w-full items-center px-4 py-4 sm:py-5">
+          <Link href="/" className="inline-flex items-center">
             <span className="sr-only">Lexsy</span>
-            <img
+            <Image
               src="https://cdn.prod.website-files.com/65030261282cb8dc8d56f660/671dd7da409351203f94af52_Lexsy.png"
               alt="Lexsy"
+              width={155}
+              height={40}
               className="h-8 w-auto"
-              loading="lazy"
-              decoding="async"
+              priority={false}
+              unoptimized
             />
           </Link>
-          <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.35em] text-lexsy-muted">
-            <span className="hidden sm:inline">AI legal partner</span>
-            <a href="https://stan.store/Lexsy" target="_blank" rel="noreferrer" className="lexsy-cta">
-              Apply to Work With Us
-            </a>
-          </div>
         </div>
       </header>
 

@@ -188,26 +188,24 @@ function FillPageContent() {
             }
           />
           <div className="grid flex-1 min-h-0 gap-3 lg:grid-cols-[minmax(0,0.6fr)_minmax(0,0.4fr)]">
-            <div className="flex min-h-0 flex-col gap-3 overflow-hidden p-1 sm:p-2">
-              <div className="flex-1 min-h-0 overflow-hidden">
-                {isProcessing ? (
-                  <PendingTemplateState status={document?.processing_status} progress={animatedProgress} />
-                ) : activePane === "document" ? (
-                  <DocumentPreviewWindow template={template} document={document} />
-                ) : (
-                  <PlaceholderTable
-                    template={template}
-                    document={document}
-                    onDocumentUpdated={handleDocumentPatched}
-                  />
-                )}
-              </div>
+            <div className="flex h-full min-h-0 flex-col overflow-hidden">
+              {isProcessing ? (
+                <PendingTemplateState status={document?.processing_status} progress={animatedProgress} />
+              ) : activePane === "document" ? (
+                <DocumentPreviewWindow template={template} document={document} />
+              ) : (
+                <PlaceholderTable
+                  template={template}
+                  document={document}
+                  onDocumentUpdated={handleDocumentPatched}
+                />
+              )}
             </div>
-            <div className="flex min-h-0 flex-col overflow-hidden p-1 sm:p-2">
+            <div className="flex h-full min-h-0 flex-col overflow-hidden">
               <ChatPanel
                 document={document}
                 onTemplateUpdated={handleTemplateUpdated}
-                className="h-full min-h-0 overflow-hidden"
+                className="h-full min-h-0"
               />
             </div>
           </div>
@@ -233,17 +231,15 @@ function FillTopBar({
   return (
     <div className="lexsy-panel rounded-3xl px-3 py-2 text-[11px] text-lexsy-muted">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex rounded-full border border-(--lexsy-border) bg-white/70 p-0.5 shadow-sm">
+        <div className="lexsy-pill-toggle-group">
           {(["document", "placeholders"] as Pane[]).map((pane) => (
             <button
               key={pane}
               type="button"
               onClick={() => onPaneChange(pane)}
               className={clsx(
-                "rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] transition",
-                activePane === pane
-                  ? "bg-foreground text-white shadow-[0_12px_30px_rgba(31,19,44,0.25)]"
-                  : "text-lexsy-muted hover:bg-white"
+                "lexsy-pill-toggle",
+                activePane === pane && "lexsy-pill-toggle-active"
               )}
             >
               {pane === "document" ? "Document" : "Placeholders"}
