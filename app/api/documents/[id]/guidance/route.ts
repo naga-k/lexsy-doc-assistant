@@ -76,7 +76,9 @@ async function streamIntroText({
   outstandingPlaceholders,
 }: IntroPromptConfig) {
   const cleanedTitle = normalizeFilename(filename);
-  const outstandingLabels = outstandingPlaceholders.slice(0, 3).map((placeholder) => sanitizeLabel(placeholder.raw ?? placeholder.key));
+  const outstandingLabels = outstandingPlaceholders
+    .slice(0, 3)
+    .map((placeholder) => sanitizeLabel(placeholder.raw ?? placeholder.key));
   const outstandingSummary =
     outstandingLabels.length > 0
       ? `Remaining priority fields: ${outstandingLabels.join(", ")}.`
@@ -105,7 +107,7 @@ async function streamPlaceholderText({
 }: PlaceholderPromptConfig) {
   const cleanedTitle = normalizeFilename(filename);
   const label = sanitizeLabel(placeholder.raw ?? placeholder.key);
-  const context = placeholder.exampleContext?.trim();
+  const context = placeholder.description?.trim();
   const remainingAfter = Math.max(outstandingCount - 1, 0);
   const remainingText =
     remainingAfter > 0 ? `${remainingAfter} field${remainingAfter === 1 ? "" : "s"} left once this is done.` : "This is the last outstanding field.";
@@ -117,7 +119,7 @@ async function streamPlaceholderText({
     prompt: `Document: ${cleanedTitle}
 Placeholder: ${label}
 Required: ${placeholder.required ? "Yes" : "No"}
-Context excerpt: ${context ?? "N/A"}
+Short description: ${context ?? "N/A"}
 ${remainingText}`,
   });
 }

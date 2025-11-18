@@ -324,7 +324,9 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
 
       const resolvedGuidanceId =
         getGuidanceMessageId(guidanceKey) ??
-        `guidance-${nextPlaceholder.key ?? nextPlaceholder.raw ?? nextPlaceholder.exampleContext ?? "placeholder"}`;
+        `guidance-${
+          nextPlaceholder.key ?? nextPlaceholder.raw ?? nextPlaceholder.description ?? "placeholder"
+        }`;
 
       const guidanceMessage = remoteText
         ? buildAssistantMessage(resolvedGuidanceId, remoteText)
@@ -466,7 +468,8 @@ function getPlaceholderDisplayName(placeholder: Placeholder | null | undefined):
   if (!placeholder) {
     return "this field";
   }
-  const source = placeholder.exampleContext?.trim() || placeholder.raw || placeholder.key;
+  const source =
+    placeholder.description?.trim() || placeholder.key?.trim() || placeholder.raw?.trim();
   return formatPlaceholderLabel(source);
 }
 
@@ -515,7 +518,7 @@ function buildGuidanceMessage({
   outstandingCount,
 }: GuidanceMessageConfig): UIMessage {
   const label = getPlaceholderDisplayName(placeholder);
-  const context = placeholder.exampleContext?.trim();
+  const context = placeholder.description?.trim();
   const placeholderKey = placeholder.key ?? label;
   const remaining = outstandingCount > 1 ? `${outstandingCount - 1} more after this` : "this is the final field";
   const intro = `Let's capture ${label} for ${documentTitle}.`;
@@ -689,9 +692,7 @@ export function PlaceholderTable({ template }: { template: ExtractedTemplate | n
                   return String(placeholder.value).trim();
                 })();
                 const filled = formattedValue !== "";
-                const fieldLabel = formatPlaceholderLabel(
-                  placeholder.exampleContext || placeholder.raw || placeholder.key || ""
-                );
+                const fieldLabel = getPlaceholderDisplayName(placeholder);
                 const currentValue = filled ? formattedValue : "";
                 const displayValue = currentValue ? truncateValue(currentValue) : "";
                 const statusText = filled
@@ -699,7 +700,7 @@ export function PlaceholderTable({ template }: { template: ExtractedTemplate | n
                   : placeholder.required
                     ? "Missing"
                     : "Optional";
-                const originalEntry = placeholder.raw ?? placeholder.exampleContext ?? "—";
+                const originalEntry = placeholder.raw ?? placeholder.description ?? "—";
                 const statusClasses = clsx(
                   "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-wide",
                   filled

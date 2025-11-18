@@ -5,7 +5,7 @@ export interface PlaceholderDescription {
   label: string;
   required: boolean;
   value: string | null;
-  example?: string | null;
+  description?: string | null;
 }
 
 export function buildPlaceholderSummary(template: ExtractedTemplate): string {
@@ -27,13 +27,13 @@ export function getOutstandingPlaceholders(template: ExtractedTemplate): Placeho
 
 export function describePlaceholder(
   placeholder: Placeholder,
-  includeExample = false
+  includeDescription = false
 ): PlaceholderDescription {
   return {
     key: placeholder.key,
     label: placeholder.raw ?? placeholder.key,
     required: Boolean(placeholder.required),
     value: placeholder.value ?? null,
-    example: includeExample ? placeholder.exampleContext || null : undefined,
+    description: includeDescription ? placeholder.description || null : undefined,
   };
 }

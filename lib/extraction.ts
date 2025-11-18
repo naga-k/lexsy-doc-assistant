@@ -102,18 +102,18 @@ async function extractChunkTemplate(
     totalChunks > 1 ? `DOCUMENT CHUNK (${chunkIndex + 1}/${totalChunks})` : "DOCUMENT TEXT";
   const attemptExtraction = () =>
     generateObject({
-      model: openai("gpt-5-mini"),
+      model: openai("gpt-5-nano"),
       schema: extractedTemplateSchema,
       system:
-        "You transform raw legal template text into structured placeholder metadata used for auto-filling documents. " +
-        "Only return valid JSON for the schema provided. Keep keys snake_cased without spaces.",
+        "You transform legal template text into structured placeholder metadata for auto-filling documents. " +
+        "Only return valid JSON for the schema provided. Keep keys snake_cased without spaces and descriptions under 30 characters.",
       prompt: `${header}:
 """
 ${chunk}
 """
 
 Identify placeholder tokens such as [Company Name], $[_____], {{value}} etc that appear in this chunk. Build docAst as ordered nodes using either plain text or placeholder references.
-For each placeholder infer key, original raw token, example context in <=160 chars, data type (${placeholderValueTypeSchema.options.join(
+For each placeholder infer key, original raw token, a concise description (<30 chars), data type (${placeholderValueTypeSchema.options.join(
         ", "
       )}), and if the field is required. Include value=null.`,
     });

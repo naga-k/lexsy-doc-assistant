@@ -36,7 +36,10 @@ export function createPlaceholderTools({
     description: "Look up placeholders, their status, and any outstanding work before editing.",
     inputSchema: z.object({
       key: z.string().min(1).describe("Exact placeholder key to inspect").optional(),
-      includeExample: z.boolean().default(false).describe("Return the example context when true"),
+      includeDescription: z
+        .boolean()
+        .default(false)
+        .describe("Include the short placeholder description when true."),
       outstandingOnly: z
         .boolean()
         .default(true)
@@ -49,7 +52,7 @@ export function createPlaceholderTools({
         .default(5)
         .describe("Maximum number of placeholders to list at once."),
     }),
-    execute: async ({ key, includeExample, outstandingOnly, limit }) => {
+    execute: async ({ key, includeDescription, outstandingOnly, limit }) => {
       const placeholderPool = outstandingOnly
         ? getOutstandingPlaceholders(currentTemplate)
         : currentTemplate.placeholders;
@@ -67,7 +70,7 @@ export function createPlaceholderTools({
 
         return {
           status: "single" as const,
-          placeholder: describePlaceholder(placeholder, includeExample),
+          placeholder: describePlaceholder(placeholder, includeDescription),
           outstandingCount,
         };
       }
@@ -75,7 +78,7 @@ export function createPlaceholderTools({
       const selection = placeholderPool.slice(0, limit ?? 5);
       return {
         status: "list" as const,
-        placeholders: selection.map((item) => describePlaceholder(item, includeExample)),
+        placeholders: selection.map((item) => describePlaceholder(item, includeDescription)),
         outstandingCount,
       };
     },
