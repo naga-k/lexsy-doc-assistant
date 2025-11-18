@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import type { DocumentRecord, ExtractedTemplate } from "@/lib/types";
 import { processDocument, requestDocument } from "@/lib/client-documents";
 import { ChatPanel, DocumentPreviewWindow, PlaceholderTable } from "@/components/workflow";
@@ -23,7 +23,6 @@ export default function FillPage() {
 function FillPageContent() {
   const searchParams = useSearchParams();
   const docId = searchParams.get("docId");
-  const router = useRouter();
   const [document, setDocument] = useState<DocumentRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,10 +81,10 @@ function FillPageContent() {
     void loadDocument({ background: true });
   }, [loadDocument]);
 
-  const handleJumpToPreview = useCallback(() => {
-    if (!docId) return;
-    router.push(`/preview?docId=${docId}`);
-  }, [docId, router]);
+  const handleDocumentPatched = useCallback((next: DocumentRecord) => {
+    setDocument(next);
+    setProcessingError(null);
+  }, [setProcessingError]);
 
   const handleRetryProcessing = useCallback(() => {
     if (!docId) return;
@@ -181,9 +180,12 @@ function FillPageContent() {
           <FillTopBar
             activePane={activePane}
             onPaneChange={setActivePane}
-            onJumpToPreview={handleJumpToPreview}
-            previewDisabled={!docId || isProcessing}
             completionRatio={completionRatio}
+            downloadHref={
+              document?.filled_blob_url && !isProcessing
+                ? `/api/documents/${document.id}/download`
+                : null
+            }
           />
           <div className="grid flex-1 min-h-0 gap-3 lg:grid-cols-[minmax(0,0.6fr)_minmax(0,0.4fr)]">
             <div className="flex min-h-0 flex-col gap-3 overflow-hidden p-1 sm:p-2">
@@ -191,9 +193,13 @@ function FillPageContent() {
                 {isProcessing ? (
                   <PendingTemplateState status={document?.processing_status} progress={animatedProgress} />
                 ) : activePane === "document" ? (
-                  <DocumentPreviewWindow template={template} />
+                  <DocumentPreviewWindow template={template} document={document} />
                 ) : (
-                  <PlaceholderTable template={template} />
+                  <PlaceholderTable
+                    template={template}
+                    document={document}
+                    onDocumentUpdated={handleDocumentPatched}
+                  />
                 )}
               </div>
             </div>
@@ -214,17 +220,15 @@ function FillPageContent() {
 type FillTopBarProps = {
   activePane: Pane;
   onPaneChange: (pane: Pane) => void;
-  onJumpToPreview: () => void;
-  previewDisabled: boolean;
   completionRatio: number;
+  downloadHref: string | null;
 };
 
 function FillTopBar({
   activePane,
   onPaneChange,
-  onJumpToPreview,
-  previewDisabled,
   completionRatio,
+  downloadHref,
 }: FillTopBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-3 px-1 py-1 text-xs text-slate-300 sm:px-2">
@@ -256,11 +260,14 @@ function FillTopBar({
       </div>
       <button
         type="button"
-        onClick={onJumpToPreview}
+        onClick={() => {
+          if (!downloadHref) return;
+          window.location.assign(downloadHref);
+        }}
         className="inline-flex items-center rounded-full border border-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80 transition hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={previewDisabled}
+        disabled={!downloadHref}
       >
-        Preview & Generate
+        Download latest DOCX
       </button>
     </div>
   );

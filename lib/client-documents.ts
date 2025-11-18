@@ -40,16 +40,20 @@ export async function uploadDocument(file: File) {
   return parseDocumentResponse(response);
 }
 
-export async function generateDocument(documentId: string) {
-  const response = await fetch(`/api/documents/${documentId}/generate`, {
+export async function processDocument(documentId: string) {
+  const response = await fetch(`/api/documents/${documentId}/process`, {
     method: "POST",
   });
   return parseDocumentResponse(response);
 }
 
-export async function processDocument(documentId: string) {
-  const response = await fetch(`/api/documents/${documentId}/process`, {
-    method: "POST",
+export async function updateDocumentPlaceholders(documentId: string, updates: Record<string, string>) {
+  const response = await fetch(`/api/documents/${documentId}/placeholders`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ updates }),
   });
   return parseDocumentResponse(response);
 }

@@ -2,7 +2,8 @@ import { tool } from "ai";
 import { z } from "zod";
 import { applyPlaceholderUpdates } from "@/lib/templates";
 import { updateTemplateJson } from "@/lib/documents";
-import type { ExtractedTemplate } from "@/lib/types";
+import type { DocumentRecord } from "@/lib/types";
+import { regenerateDocumentPreview } from "@/lib/document-preview";
 import {
   buildPlaceholderSummary,
   describePlaceholder,
@@ -11,8 +12,7 @@ import {
 } from "@/lib/chat/template-utils";
 
 interface CreatePlaceholderToolsOptions {
-  documentId: string;
-  template: ExtractedTemplate;
+  document: DocumentRecord;
 }
 
 interface UpdateResult {
@@ -25,11 +25,9 @@ interface UpdateResult {
   key?: string;
 }
 
-export function createPlaceholderTools({
-  documentId,
-  template,
-}: CreatePlaceholderToolsOptions) {
-  let currentTemplate = template;
+export function createPlaceholderTools({ document }: CreatePlaceholderToolsOptions) {
+  let currentDocument = document;
+  let currentTemplate = document.template_json;
   let templateUpdated = false;
 
   const inspect_placeholder = tool({
@@ -124,7 +122,15 @@ export function createPlaceholderTools({
       }
 
       currentTemplate = applyPlaceholderUpdates(currentTemplate, { [key]: trimmedValue });
-      await updateTemplateJson(documentId, currentTemplate);
+      await updateTemplateJson(currentDocument.id, currentTemplate);
+      try {
+        const refreshed = await regenerateDocumentPreview(currentDocument, currentTemplate);
+        if (refreshed) {
+          currentDocument = refreshed;
+        }
+      } catch (previewError) {
+        console.error("Failed to refresh SuperDoc preview", previewError);
+      }
       templateUpdated = true;
 
       const refreshed = currentTemplate.placeholders.find((item) => item.key === key)!;

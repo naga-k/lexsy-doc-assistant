@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
@@ -24,6 +24,8 @@ import {
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import type { DocumentRecord, ExtractedTemplate, Placeholder } from "@/lib/types";
+import { updateDocumentPlaceholders } from "@/lib/client-documents";
+import { SuperDocViewer } from "@/components/superdoc/document-viewer";
 
 export interface UploadCardProps {
   document: DocumentRecord | null;
@@ -763,111 +765,87 @@ function getLastAssistantMessageId(messages: UIMessage[]): string | undefined {
   return undefined;
 }
 
-export function DocumentPreviewWindow({ template }: { template: ExtractedTemplate | null }) {
-  return (
-    <section className="flex h-full flex-col border border-white/10 bg-slate-950/60 p-3 text-sm text-slate-100 sm:p-4">
-      <div className="flex-1 overflow-y-auto border border-white/10 bg-slate-900/60 p-3 leading-relaxed sm:p-4">
-        {!template ? (
-          <p className="text-slate-400">
-            Upload a template to see a live preview. Lexsy keeps the AST representation visible while you fill fields.
-          </p>
-        ) : (
-          <PreviewBody template={template} />
-        )}
-      </div>
-    </section>
-  );
-}
-
-export interface PreviewCardProps {
-  document: DocumentRecord | null;
-  template: ExtractedTemplate | null;
-  completionRatio: number;
-  templateReady: boolean;
-  isGenerating: boolean;
-  generateError: string | null;
-  onGenerate: () => void;
-  className?: string;
-  onBackToFill?: () => void;
-}
-
-export function PreviewCard({
-  document,
+export function DocumentPreviewWindow({
   template,
-  completionRatio,
-  templateReady,
-  isGenerating,
-  generateError,
-  onGenerate,
-  className,
-  onBackToFill,
-}: PreviewCardProps) {
+  document,
+}: {
+  template: ExtractedTemplate | null;
+  document: DocumentRecord | null;
+}) {
   return (
-    <section
-      className={clsx(
-        "flex h-full flex-col rounded-3xl border border-white/15 bg-slate-950/60 p-4 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur sm:p-5",
-        className
-      )}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-white">Preview & export</h2>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 text-right">
-          <div>
-            <p className="text-sm font-medium text-white/80">{completionRatio}% complete</p>
-            <div className="mt-1 h-2 w-36 rounded-full bg-white/10">
-              <div className="h-2 rounded-full bg-indigo-500 transition-all" style={{ width: `${completionRatio}%` }} />
-            </div>
-          </div>
-                    {onBackToFill ? (
-            <button
-              type="button"
-              onClick={onBackToFill}
-              className="inline-flex items-center rounded-full border border-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80 transition hover:border-white/40 hover:text-white"
-            >
-              Back to fill
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="mt-4 flex-1 min-h-0 overflow-y-auto rounded-xl border border-white/10 bg-slate-900/60 p-3 text-sm leading-relaxed text-slate-100 sm:p-4">
-        {!template ? (
+    <SuperDocViewer
+      document={document}
+      variant="live"
+      className="h-full"
+      fallback={
+        !template ? (
           <p className="text-slate-300">
-            Upload a template to see its structure here. We render the doc inserting your latest answers so you never lose formatting context.
+            Upload a template to see a live Microsoft Word preview with comments and pagination.
           </p>
         ) : (
-          <PreviewBody template={template} />
-        )}
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={onGenerate}
-          disabled={!document || !templateReady || isGenerating}
-          className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-white/20"
-        >
-          {isGenerating ? "Generating..." : "Generate filled .docx"}
-        </button>
-        <a
-          href={document?.filled_blob_url ? `/api/documents/${document.id}/download` : undefined}
-          aria-disabled={!document?.filled_blob_url}
-          className={clsx(
-            "rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-white/80 transition hover:border-white/40 hover:text-white",
-            !document?.filled_blob_url && "pointer-events-none opacity-50"
-          )}
-        >
-          Download latest file
-        </a>
-        {generateError ? <p className="text-sm text-rose-200">{generateError}</p> : null}
-      </div>
-    </section>
+          <div className="flex flex-col gap-2 text-sm text-slate-100">
+            <p className="text-slate-300">
+              Waiting for the rendered DOCX? Here&apos;s the structured view while we sync the real document.
+            </p>
+            <PreviewBody template={template} />
+          </div>
+        )
+      }
+    />
   );
 }
 
-export function PlaceholderTable({ template }: { template: ExtractedTemplate | null }) {
+export function PlaceholderTable({
+  template,
+  document,
+  onDocumentUpdated,
+}: {
+  template: ExtractedTemplate | null;
+  document: DocumentRecord | null;
+  onDocumentUpdated?: (next: DocumentRecord) => void;
+}) {
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [draftValue, setDraftValue] = useState("");
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<string | null>(null);
+
+  const beginEditing = useCallback((placeholder: Placeholder) => {
+    setEditingKey(placeholder.key);
+    setDraftValue(placeholder.value ?? "");
+    setRowError(null);
+  }, []);
+
+  const cancelEditing = useCallback(() => {
+    setEditingKey(null);
+    setDraftValue("");
+    setRowError(null);
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!editingKey) return;
+    if (!document) {
+      setRowError("Load a document before saving edits.");
+      return;
+    }
+    const trimmed = draftValue.trim();
+    if (!trimmed) {
+      setRowError("Enter a value before saving.");
+      return;
+    }
+    setSavingKey(editingKey);
+    setRowError(null);
+    try {
+      const updated = await updateDocumentPlaceholders(document.id, { [editingKey]: trimmed });
+      onDocumentUpdated?.(updated);
+      setEditingKey(null);
+      setDraftValue("");
+    } catch (error) {
+      setRowError((error as Error).message ?? "Unable to save placeholder value.");
+    } finally {
+      setSavingKey(null);
+    }
+  }, [document, draftValue, editingKey, onDocumentUpdated]);
+
   return (
     <section className="flex h-full flex-col rounded-3xl border border-white/15 bg-slate-950/60 p-4 text-white shadow-[0_25px_60px_rgba(2,6,23,0.65)] backdrop-blur sm:p-5">
       {!template ? (
@@ -883,6 +861,7 @@ export function PlaceholderTable({ template }: { template: ExtractedTemplate | n
                 <th className="py-2 pr-3">Original entry</th>
                 <th className="py-2 pr-3">Status</th>
                 <th className="py-2">Type</th>
+                <th className="py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -914,20 +893,70 @@ export function PlaceholderTable({ template }: { template: ExtractedTemplate | n
                       ? "bg-rose-600 text-white shadow-[0_0_0_1px_rgba(225,29,72,0.4)]"
                       : "bg-slate-700 text-slate-100 shadow-[0_0_0_1px_rgba(148,163,184,0.35)]"
                 );
+                const isEditing = editingKey === placeholder.key;
                 return (
-                    <tr key={placeholder.key} className="border-b border-white/10 last:border-none">
-                    <td className="py-3 pr-3">
+                  <Fragment key={placeholder.key}>
+                    <tr className="border-b border-white/10 last:border-none">
+                      <td className="py-3 pr-3">
                         <div className="font-medium text-white">{fieldLabel}</div>
                         <p className="text-xs text-white/60">{placeholder.key}</p>
-                    </td>
+                      </td>
                       <td className="py-3 pr-3 text-white/70">{originalEntry}</td>
-                    <td className="py-3 pr-3">
-                      <span className={statusClasses} title={filled ? currentValue : undefined}>
-                        {statusText}
-                      </span>
-                    </td>
+                      <td className="py-3 pr-3">
+                        <span className={statusClasses} title={filled ? currentValue : undefined}>
+                          {statusText}
+                        </span>
+                      </td>
                       <td className="py-3 text-xs uppercase tracking-wide text-white/50">{placeholder.type}</td>
-                  </tr>
+                      <td className="py-3">
+                        <button
+                          type="button"
+                          onClick={() => (isEditing ? cancelEditing() : beginEditing(placeholder))}
+                          className="rounded-full border border-white/25 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80 transition hover:border-white/50 hover:text-white"
+                        >
+                          {isEditing ? "Close" : filled ? "Edit" : "Fill"}
+                        </button>
+                      </td>
+                    </tr>
+                    {isEditing ? (
+                      <tr className="border-b border-white/10 last:border-none">
+                        <td colSpan={5} className="bg-white/5 px-4 py-3">
+                          <div className="space-y-3">
+                            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
+                              Placeholder value
+                            </label>
+                            <textarea
+                              value={draftValue}
+                              onChange={(event) => setDraftValue(event.target.value)}
+                              className="w-full rounded-2xl border border-white/20 bg-slate-950/60 p-3 text-sm text-white outline-none transition focus:border-white/50"
+                              rows={4}
+                            />
+                            {rowError ? <p className="text-xs text-rose-300">{rowError}</p> : null}
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={savingKey === placeholder.key}
+                                className="inline-flex items-center gap-2 rounded-full bg-indigo-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-indigo-500/40"
+                              >
+                                {savingKey === placeholder.key ? (
+                                  <Loader size={14} className="text-white" />
+                                ) : null}
+                                Save value
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelEditing}
+                                className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/80 transition hover:border-white/40 hover:text-white"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
                 );
               })}
             </tbody>
