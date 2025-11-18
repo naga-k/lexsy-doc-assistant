@@ -527,12 +527,16 @@ function renderMessageText(message: UIMessage): string {
     .map((part) => {
       switch (part.type) {
         case "text":
-        case "reasoning":
           return part.text;
+        case "reasoning":
+          return "";
         case "source-url":
           return part.title ?? part.url ?? part.sourceId;
         case "source-document":
           return part.title ?? part.sourceId;
+        case "tool-call":
+        case "tool-result":
+          return "";
         default:
           return `[${part.type}]`;
       }
