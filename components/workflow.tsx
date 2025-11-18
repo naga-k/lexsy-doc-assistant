@@ -380,13 +380,20 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
               </ConversationEmptyState>
             ) : (
               <ConversationContent className="gap-5 p-5 sm:p-7">
-                {messages.map((message, index) => (
-                  <ChatMessage key={message.id ?? `${message.role}-${index}`} from={message.role}>
-                    <MessageContent>
-                      <MessageResponse>{renderMessageText(message)}</MessageResponse>
-                    </MessageContent>
-                  </ChatMessage>
-                ))}
+                {messages.map((message, index) => {
+                  const renderedText = renderMessageText(message).trim();
+                  if (!renderedText) {
+                    return null;
+                  }
+
+                  return (
+                    <ChatMessage key={message.id ?? `${message.role}-${index}`} from={message.role}>
+                      <MessageContent>
+                        <MessageResponse>{renderedText}</MessageResponse>
+                      </MessageContent>
+                    </ChatMessage>
+                  );
+                })}
               </ConversationContent>
             )}
             <ConversationScrollButton className="bg-white/10 text-white shadow-lg hover:bg-white/20" />
@@ -536,8 +543,12 @@ function renderMessageText(message: UIMessage): string {
           return part.title ?? part.sourceId;
         case "tool-call":
         case "tool-result":
+        case "step-start":
           return "";
         default:
+          if (part.type?.startsWith?.("tool-")) {
+            return "";
+          }
           return `[${part.type}]`;
       }
     })
