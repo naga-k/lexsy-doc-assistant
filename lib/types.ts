@@ -96,6 +96,8 @@ function sanitizeDocString(value: string): string {
   return value.replace(/\u0000/g, "");
 }
 
+export type DocumentProcessingStatus = "pending" | "processing" | "ready" | "failed";
+
 export interface DocumentRecord {
   id: string;
   filename: string;
@@ -104,6 +106,15 @@ export interface DocumentRecord {
   filled_blob_url: string | null;
   template_json: ExtractedTemplate;
   created_at: string;
+  processing_status: DocumentProcessingStatus;
+  processing_progress: number;
+  processing_total_chunks: number;
+  processing_next_chunk: number;
+  processing_error: string | null;
+}
+
+export interface InternalDocumentRecord extends DocumentRecord {
+  plain_text: string | null;
 }
 
 export const INITIAL_CHAT_INSTRUCTIONS =

@@ -122,13 +122,19 @@ export function ChatPanel({ document, onTemplateUpdated, className }: ChatPanelP
   return (
     <section
       className={clsx(
-        "flex min-h-0 flex-col overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-b from-slate-950/80 via-slate-950/60 to-slate-950/80 text-white shadow-[0_35px_80px_rgba(2,6,23,0.65)] backdrop-blur-lg",
+        "flex min-h-0 flex-col overflow-hidden rounded-4xl border border-white/10 bg-linear-to-b from-slate-950/80 via-slate-950/60 to-slate-950/80 text-white shadow-[0_35px_80px_rgba(2,6,23,0.65)] backdrop-blur-lg",
         className
       )}
     >
       {!document ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-slate-900/60 px-6 py-5 text-center text-sm text-slate-300">
           Upload a .docx template to unlock live chat with Lexsy&apos;s legal assistant.
+        </div>
+      ) : document.processing_status !== "ready" ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/20 bg-slate-900/60 px-6 py-5 text-center">
+          <Loader size={20} className="text-indigo-200" />
+          <p className="text-sm text-slate-200">Preparing your template&hellip;</p>
+          <p className="text-xs text-white/60">Chat will unlock once extraction finishes.</p>
         </div>
       ) : (
         <ActiveChatPanel document={document} onTemplateUpdated={onTemplateUpdated} />
@@ -354,7 +360,7 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
 
   return (
     <div className="flex flex-1 min-h-0 flex-col text-white">
-      <div className="relative flex min-h-0 flex-1 flex-col rounded-[32px] border border-white/10 bg-slate-950/40">
+      <div className="relative flex min-h-0 flex-1 flex-col rounded-4xl border border-white/10 bg-slate-950/40">
         <div className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           {isBusy ? (
             <div className="pointer-events-none absolute left-1/2 top-4 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-slate-950/90 px-3 py-1 text-xs font-medium text-white/80 shadow-xl">
@@ -387,13 +393,10 @@ function ActiveChatPanel({ document, onTemplateUpdated }: ActiveChatPanelProps) 
           </Conversation>
         </div>
         <div className="border-t border-white/10 bg-slate-950/60 px-0 py-0">
-          <PromptInput
-            onSubmit={handlePromptSubmit}
-            className="[&_[data-slot=input-group]]:rounded-[12px] [&_[data-slot=input-group]]:border [&_[data-slot=input-group]]:border-white/12 [&_[data-slot=input-group]]:bg-white/5"
-          >
+          <PromptInput onSubmit={handlePromptSubmit} className="lexsy-chat-input-group">
             <PromptInputTextarea
               placeholder="Send a message to Lexsy…"
-              className="h-11 flex-1 border-none bg-transparent !px-0 !py-0 text-left text-sm leading-[44px] text-white placeholder:text-white/60"
+              className="lexsy-chat-textarea h-11 flex-1 border-none bg-transparent text-left text-sm text-white placeholder:text-white/60"
             />
             <PromptInputSubmit
               status={status}
