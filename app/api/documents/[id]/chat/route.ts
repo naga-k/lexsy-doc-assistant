@@ -73,7 +73,7 @@ When you still need information, ask one concise follow-up question. After a fie
     messages: modelMessages,
   });
 
-  return stream.toTextStreamResponse({
+  return stream.toUIMessageStreamResponse({
     headers: {
       "x-template-updated": hasUpdates ? "1" : "0",
     },
