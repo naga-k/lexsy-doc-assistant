@@ -6,11 +6,20 @@ import type { Placeholder } from "@/lib/types";
 
 export const maxDuration = 30;
 
-const INTRO_SYSTEM_PROMPT =
-  "You are Lexsy, a concise legal drafting co-pilot. Respond with exactly two short sentences (≤18 words each). Sentence 1 should greet the user and mention the document title. Sentence 2 should state how many placeholders remain and invite them to choose the next field.";
+const INTRO_SYSTEM_PROMPT = joinPrompt([
+  "You are Lexsy, a concise legal drafting co-pilot.",
+  "Respond with exactly two short sentences (≤18 words each).",
+  "Sentence 1 should greet the user and mention the document title.",
+  "Sentence 2 should suggest a field or offer help without mentioning counts or promising to handle anything else.",
+]);
 
-const PLACEHOLDER_SYSTEM_PROMPT =
-  "You are Lexsy, a precise legal drafting assistant. Respond with two short sentences (≤18 words each). Sentence 1 should request the value using the natural field label and state if it is required. Sentence 2 should briefly note remaining work and reassure the user you'll handle the rest. Never mention placeholder keys or hashes.";
+const PLACEHOLDER_SYSTEM_PROMPT = joinPrompt([
+  "You are Lexsy, a precise legal drafting assistant.",
+  "Respond with two short sentences (≤18 words each).",
+  "Sentence 1 should request the value using the natural field label and mention if it is required.",
+  "Sentence 2 may suggest the expected format or ask for clarification.",
+  "Never mention placeholder keys, hashes, progress counts, or say you'll handle the rest.",
+]);
 
 type GuidanceVariant = "intro" | "placeholder";
 
@@ -39,13 +48,11 @@ export async function POST(
     return NextResponse.json({ error: "Template not ready" }, { status: 400 });
   }
   const outstandingPlaceholders = template.placeholders.filter((placeholder) => !placeholder.value);
-  const outstandingCount = outstandingPlaceholders.length;
 
   try {
     if (body.variant === "intro") {
       const stream = await streamIntroText({
         filename: document.filename,
-        outstandingCount,
         outstandingPlaceholders,
       });
       const text = (await stream.text).trim();
@@ -59,7 +66,6 @@ export async function POST(
 
     const stream = await streamPlaceholderText({
       filename: document.filename,
-      outstandingCount,
       placeholder,
     });
     const text = (await stream.text).trim();
@@ -72,13 +78,11 @@ export async function POST(
 
 interface IntroPromptConfig {
   filename: string;
-  outstandingCount: number;
   outstandingPlaceholders: Placeholder[];
 }
 
 async function streamIntroText({
   filename,
-  outstandingCount,
   outstandingPlaceholders,
 }: IntroPromptConfig) {
   const cleanedTitle = normalizeFilename(filename);
@@ -87,15 +91,14 @@ async function streamIntroText({
     .map((placeholder) => `- ${sanitizeLabel(placeholder.raw ?? placeholder.key)}`)
     .join("\n") || "- None";
 
-  const prompt = [
+  const prompt = joinPrompt([
     `Document title: ${cleanedTitle}`,
-    `Outstanding placeholders: ${outstandingCount}`,
     "Focus fields:",
     outstandingLabels,
     "Response checklist:",
-    "- Sentence 1: greet the user, reference the document title, and mention progress.",
-    "- Sentence 2: suggest tackling one of the focus fields or offer an alternative next step.",
-  ].join("\n");
+    "- Sentence 1: greet the user and reference the document title.",
+    "- Sentence 2: suggest tackling one of the focus fields or offer an alternative next step. Avoid counts or promises like 'I'll handle the rest'.",
+  ]);
 
   return streamText({
     model: openai("gpt-5-mini"),
@@ -106,32 +109,25 @@ async function streamIntroText({
 
 interface PlaceholderPromptConfig {
   filename: string;
-  outstandingCount: number;
   placeholder: Placeholder;
 }
 
 async function streamPlaceholderText({
   filename,
-  outstandingCount,
   placeholder,
 }: PlaceholderPromptConfig) {
   const cleanedTitle = normalizeFilename(filename);
   const label = sanitizeLabel(placeholder.raw ?? placeholder.key);
   const context = placeholder.description?.trim();
-  const remainingAfter = Math.max(outstandingCount - 1, 0);
-  const remainingText =
-    remainingAfter > 0 ? `${remainingAfter} field${remainingAfter === 1 ? "" : "s"} left once this is done.` : "This is the last outstanding field.";
-
-  const prompt = [
+  const prompt = joinPrompt([
     `Document title: ${cleanedTitle}`,
     `Display label: ${label}`,
     `Short description: ${context ?? "No description"}`,
     `Required: ${placeholder.required ? "Yes" : "No"}`,
-    `Remaining after completion: ${remainingText}`,
     "Response checklist:",
-    "- Sentence 1: ask for the specific value with the display label and note if it's required.",
-    "- Sentence 2: mention remaining work in under eight words and reassure the user.",
-  ].join("\n");
+    "- Sentence 1: ask for the specific value with the display label.",
+    "- Sentence 2: provide a formatting hint or quick clarification. Do not mention remaining work or say you'll handle it.",
+  ]);
 
   return streamText({
     model: openai("gpt-5-mini"),
@@ -159,4 +155,8 @@ function sanitizeLabel(value: string | undefined): string {
     return "this field";
   }
   return value.replace(/[\[\]{}<>]/g, "").trim();
+}
+
+function joinPrompt(lines: ReadonlyArray<string>): string {
+  return lines.map((line) => line.trim()).filter(Boolean).join("\n");
 }
