@@ -160,15 +160,15 @@ function FillPageContent() {
   );
 
   return (
-    <div className="flex h-full flex-1 min-h-0 flex-col gap-1 overflow-hidden px-2 py-4 sm:px-4 lg:px-5">
+    <div className="flex h-full flex-1 min-h-0 flex-col gap-2 overflow-hidden px-2 py-4 text-lexsy-ink sm:px-4 lg:px-5">
       {!docId ? (
         <MissingDocState />
       ) : loading ? (
-        <p className="text-sm text-slate-300">Loading document…</p>
+        <p className="text-sm text-lexsy-muted">Loading document…</p>
       ) : error ? (
-        <p className="text-sm text-rose-300">{error}</p>
+        <p className="text-sm text-[#e4587c]">{error}</p>
       ) : (
-        <div className="flex flex-1 min-h-0 flex-col gap-2 sm:gap-3">
+        <div className="flex flex-1 min-h-0 flex-col gap-3">
           {document ? (
             <ProcessingBanner
               status={document.processing_status}
@@ -231,44 +231,46 @@ function FillTopBar({
   downloadHref,
 }: FillTopBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3 px-1 py-1 text-xs text-slate-300 sm:px-2">
-      <div className="inline-flex rounded-full border border-white/15 bg-white/5 p-0.5 text-white/70">
-        {(["document", "placeholders"] as Pane[]).map((pane) => (
-          <button
-            key={pane}
-            type="button"
-            onClick={() => onPaneChange(pane)}
-            className={clsx(
-              "rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] transition",
-              activePane === pane
-                ? "bg-white text-slate-900"
-                : "text-slate-300 hover:text-white hover:bg-white/10"
-            )}
-          >
-            {pane === "document" ? "Document" : "Placeholders"}
-          </button>
-        ))}
-      </div>
-      <div className="flex flex-1 items-center gap-2 text-[11px] text-white/70 min-w-[140px]">
-        <div className="h-1 flex-1 rounded-full bg-white/10">
-          <div
-            className="h-full rounded-full bg-indigo-500 transition-all"
-            style={{ width: `${completionRatio}%` }}
-          />
+    <div className="lexsy-panel rounded-3xl px-3 py-2 text-[11px] text-lexsy-muted">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex rounded-full border border-(--lexsy-border) bg-white/70 p-0.5 shadow-sm">
+          {(["document", "placeholders"] as Pane[]).map((pane) => (
+            <button
+              key={pane}
+              type="button"
+              onClick={() => onPaneChange(pane)}
+              className={clsx(
+                "rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] transition",
+                activePane === pane
+                  ? "bg-foreground text-white shadow-[0_12px_30px_rgba(31,19,44,0.25)]"
+                  : "text-lexsy-muted hover:bg-white"
+              )}
+            >
+              {pane === "document" ? "Document" : "Placeholders"}
+            </button>
+          ))}
         </div>
-        <span className="font-semibold tabular-nums">{completionRatio}%</span>
+        <div className="flex flex-1 min-w-[180px] items-center gap-2">
+          <div className="lexsy-progress-track h-1 flex-1">
+            <div
+              className="lexsy-progress-fill transition-all"
+              style={{ width: `${completionRatio}%` }}
+            />
+          </div>
+          <span className="font-semibold tabular-nums text-lexsy-ink">{completionRatio}%</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (!downloadHref) return;
+            window.location.assign(downloadHref);
+          }}
+          className="lexsy-outline-button inline-flex items-center gap-2 px-4! py-1.5! text-[10px] tracking-[0.3em] disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={!downloadHref}
+        >
+          Download DOCX
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={() => {
-          if (!downloadHref) return;
-          window.location.assign(downloadHref);
-        }}
-        className="inline-flex items-center rounded-full border border-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80 transition hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={!downloadHref}
-      >
-        Download latest DOCX
-      </button>
     </div>
   );
 }
@@ -291,18 +293,15 @@ function ProcessingBanner({ status, progress, error, onRetry }: ProcessingBanner
       ? "Extracting template"
       : "Queued for extraction";
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-white/80">
+    <div className="lexsy-panel-soft rounded-2xl border border-(--lexsy-border-strong) px-4 py-3 text-xs text-lexsy-muted">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-indigo-200">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-(--lexsy-rose)">
           {statusLabel}
         </span>
         {!isFailed ? (
           <div className="flex min-w-40 flex-1 items-center gap-2 text-[11px]">
-            <div className="h-1.5 flex-1 rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-indigo-400 transition-all"
-                style={{ width: `${progress}%` }}
-              />
+            <div className="lexsy-progress-track h-1.5 flex-1">
+              <div className="lexsy-progress-fill transition-all" style={{ width: `${progress}%` }} />
             </div>
             <span className="font-semibold tabular-nums">{Math.round(progress)}%</span>
           </div>
@@ -310,13 +309,13 @@ function ProcessingBanner({ status, progress, error, onRetry }: ProcessingBanner
           <button
             type="button"
             onClick={onRetry}
-            className="rounded-full border border-white/30 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-white transition hover:border-white/60"
+            className="lexsy-outline-button inline-flex items-center px-4! py-1.5! text-[10px] tracking-[0.3em]"
           >
             Retry extraction
           </button>
         )}
       </div>
-      {error ? <p className="mt-2 text-[11px] text-rose-200">{error}</p> : null}
+      {error ? <p className="mt-2 text-[11px] text-[#e4587c]">{error}</p> : null}
     </div>
   );
 }
@@ -329,16 +328,16 @@ type PendingTemplateStateProps = {
 function PendingTemplateState({ status, progress }: PendingTemplateStateProps) {
   const isFailed = status === "failed";
   return (
-    <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-white/5 px-6 text-center text-sm text-slate-200">
-      <div className="flex items-center justify-center gap-2 text-xs uppercase tracking-[0.3em] text-indigo-200">
-        <Loader size={16} className="text-indigo-200" />
+    <div className="lexsy-panel-dashed flex h-full flex-col items-center justify-center rounded-2xl px-6 text-center text-sm text-lexsy-muted">
+      <div className="flex items-center justify-center gap-2 text-xs uppercase tracking-[0.3em] text-(--lexsy-rose)">
+        <Loader size={16} className="text-(--lexsy-rose)" />
         <span>{isFailed ? "Extraction failed" : "Preparing template"}</span>
       </div>
-      <p className="mt-3 text-xs text-slate-300">
+      <p className="mt-3 text-xs text-lexsy-muted">
         {isFailed ? "Retry extraction to continue." : "Hang tight while we map placeholders."}
       </p>
-      <div className="mt-4 h-1.5 w-48 rounded-full bg-white/10">
-        <div className="h-full rounded-full bg-indigo-400 transition-all" style={{ width: `${progress}%` }} />
+      <div className="lexsy-progress-track mt-4 h-1.5 w-48">
+        <div className="lexsy-progress-fill transition-all" style={{ width: `${progress}%` }} />
       </div>
     </div>
   );
@@ -390,16 +389,16 @@ function useOptimisticProgress(progress: number, totalChunks: number, isActive: 
 function FillPageFallback() {
   return (
     <div className="space-y-4">
-      <div className="h-6 w-40 animate-pulse rounded-full bg-white/20" />
-      <div className="h-32 animate-pulse rounded-3xl border border-white/10 bg-white/5" />
+      <div className="h-6 w-40 animate-pulse rounded-full bg-(--lexsy-cloud)" />
+      <div className="lexsy-panel h-32 animate-pulse rounded-3xl" />
     </div>
   );
 }
 
 function MissingDocState() {
   return (
-    <div className="rounded-2xl border border-dashed border-white/20 bg-white/5 p-6 text-sm text-slate-300">
-      Provide a <code className="text-white">docId</code> query parameter, e.g. <span className="font-semibold">/fill?docId=&lt;id&gt;</span>.
+    <div className="lexsy-panel-dashed rounded-2xl p-6 text-sm text-lexsy-muted">
+      Provide a <code className="text-lexsy-ink">docId</code> query parameter, e.g. <span className="font-semibold text-lexsy-ink">/fill?docId=&lt;id&gt;</span>.
       You can obtain one from the upload screen.
     </div>
   );

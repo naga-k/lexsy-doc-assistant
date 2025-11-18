@@ -4,11 +4,29 @@ import Link from "next/link";
 
 export function FlowNav() {
   return (
-    <nav className="shrink-0 border-b border-white/10 bg-slate-950/90 backdrop-blur">
-      <div className="flex w-full items-center px-4 py-4 sm:px-8 lg:px-16">
-        <Link href="/" className="text-sm font-semibold uppercase tracking-[0.4em] text-indigo-200">
-          Lexsy
+    <nav className="lexsy-nav shrink-0">
+      <div className="mx-auto flex w-full items-center justify-between px-4 py-3 sm:px-6">
+        <Link href="/" className="flex items-center gap-3">
+          <span className="sr-only">Lexsy home</span>
+          <img
+            src="https://cdn.prod.website-files.com/65030261282cb8dc8d56f660/671dd7da409351203f94af52_Lexsy.png"
+            alt="Lexsy"
+            className="h-7 w-auto"
+            loading="lazy"
+            decoding="async"
+          />
         </Link>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.35em] text-lexsy-muted">
+          Workflow
+        </span>
+        <a
+          href="https://stan.store/Lexsy"
+          target="_blank"
+          rel="noreferrer"
+          className="lexsy-outline-button hidden sm:inline-flex"
+        >
+          Apply
+        </a>
       </div>
     </nav>
   );
