@@ -134,7 +134,7 @@ async function streamIntroText({
   });
 
   return streamText({
-    model: openai("gpt-5-mini"),
+    model: openai("gpt-5"),
     system: INTRO_SYSTEM_PROMPT,
     prompt,
   });
@@ -176,7 +176,7 @@ async function streamPlaceholderText({
   });
 
   return streamText({
-    model: openai("gpt-5-mini"),
+    model: openai("gpt-5"),
     system: PLACEHOLDER_SYSTEM_PROMPT,
     prompt,
   });

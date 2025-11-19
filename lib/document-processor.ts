@@ -14,7 +14,6 @@ import {
 } from "./documents";
 import type { DocumentRecord, ExtractedTemplate, InternalDocumentRecord } from "./types";
 import { fillDocxTemplate } from "./docx";
-import { fillDocxWithSuperDoc } from "./superdoc-headless";
 
 export type ProcessBatchStatus = "missing" | "ready" | "processing" | "failed";
 
@@ -243,40 +242,22 @@ async function normalizeOriginalDocument(
   const templateBuffer = Buffer.from(await response.arrayBuffer());
 
   const xmlReplacementEntries = buildXmlReplacementEntries(replacementConfigs);
-
-  let normalizedBuffer: Buffer | null = null;
-  let xmlReplacementStats: { appliedCount: number; expected: number } | null = null;
-  if (xmlReplacementEntries.length > 0) {
-    try {
-      const xmlResult = await fillDocxTemplate(templateBuffer, xmlReplacementEntries);
-      xmlReplacementStats = {
-        appliedCount: xmlResult.appliedCount,
-        expected: replacementConfigs.length,
-      };
-      if (xmlResult.replacementsApplied && xmlResult.appliedCount === replacementConfigs.length) {
-        normalizedBuffer = xmlResult.buffer;
-      }
-    } catch (xmlError) {
-      console.warn("XML normalization pass failed", xmlError);
-    }
+  if (xmlReplacementEntries.length === 0) {
+    throw new Error("No placeholder tokens available for normalization.");
   }
 
-  const needsSuperDocFallback =
-    !normalizedBuffer ||
-    (xmlReplacementStats && xmlReplacementStats.appliedCount < xmlReplacementStats.expected);
-
-  if (needsSuperDocFallback) {
-    try {
-      normalizedBuffer = await fillDocxWithSuperDoc(templateBuffer, replacementConfigs);
-    } catch (superdocError) {
-      console.error("SuperDoc normalization failed", superdocError);
-      throw superdocError;
-    }
+  const xmlResult = await fillDocxTemplate(templateBuffer, xmlReplacementEntries);
+  if (!xmlResult.replacementsApplied) {
+    throw new Error("XML placeholder normalization produced no changes.");
+  }
+  if (xmlResult.appliedCount !== xmlReplacementEntries.length) {
+    console.warn("Placeholder normalization incomplete", {
+      applied: xmlResult.appliedCount,
+      expected: xmlReplacementEntries.length,
+    });
   }
 
-  if (!normalizedBuffer) {
-    throw new Error("Unable to normalize DOCX placeholders.");
-  }
+  const normalizedBuffer = xmlResult.buffer;
   const blobKey = `documents/${document.id}/normalized-${Date.now()}.docx`;
   const blob = await put(blobKey, normalizedBuffer, {
     access: "public",
@@ -313,8 +294,7 @@ function collectNormalizationTokens(placeholder: ExtractedTemplate["placeholders
     }
   };
 
-  const originalRaw = placeholder.context?.original_raw;
-  addTokenVariants(originalRaw);
+  addTokenVariants(placeholder.context?.original_raw);
 
   if (tokenSet.size === 0) {
     if (placeholder.raw && looksLikePlaceholderToken(placeholder.raw)) {
@@ -334,16 +314,13 @@ function looksLikePlaceholderToken(token: string): boolean {
 function buildXmlReplacementEntries(
   configs: Array<{ tokens: string[]; value: string }>
 ): Array<{ raw: string; value: string }> {
-  const seen = new Set<string>();
   const entries: Array<{ raw: string; value: string }> = [];
   for (const config of configs) {
-    for (const token of config.tokens) {
-      if (!token || seen.has(token)) {
-        continue;
-      }
-      seen.add(token);
-      entries.push({ raw: token, value: config.value });
+    const preferredToken = config.tokens[0];
+    if (!preferredToken) {
+      continue;
     }
+    entries.push({ raw: preferredToken, value: config.value });
   }
   return entries;
 }
