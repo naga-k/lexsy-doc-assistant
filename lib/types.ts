@@ -17,13 +17,25 @@ const rawTextNodeSchema = z.object({
   text: z.string().optional(),
 });
 
+const placeholderContextSchema = z.object({
+  index: z.number().optional(),
+  chunk_index: z.number().optional(),
+  paragraph_index: z.number().optional(),
+  surrounding_text: z.string().optional(),
+  original_raw: z.string().optional(),
+});
+
 const rawPlaceholderNodeSchema = z.object({
   type: z.literal("placeholder"),
   key: z.string(),
   raw: z.string().optional(),
+  instance_id: z.string().optional(),
+  context: placeholderContextSchema.optional(),
 });
 
 export const rawDocAstNodeSchema = z.union([rawTextNodeSchema, rawPlaceholderNodeSchema]);
+
+export type PlaceholderContext = z.infer<typeof placeholderContextSchema>;
 
 export type DocAstNode =
   | {
@@ -34,6 +46,8 @@ export type DocAstNode =
       type: "placeholder";
       key: string;
       raw: string;
+      instance_id?: string | null;
+      context?: PlaceholderContext | null;
     };
 
 const rawPlaceholderSchema = z.object({
@@ -43,6 +57,8 @@ const rawPlaceholderSchema = z.object({
   type: placeholderValueTypeSchema,
   required: z.boolean().optional(),
   value: z.string().nullable().optional(),
+  instance_id: z.string().optional(),
+  context: placeholderContextSchema.optional(),
 });
 
 export type Placeholder = {
@@ -52,6 +68,8 @@ export type Placeholder = {
   type: PlaceholderValueType;
   required: boolean;
   value?: string | null;
+  instance_id?: string;
+  context?: PlaceholderContext | null;
 };
 
 export const extractedTemplateSchema = z.object({
@@ -79,6 +97,8 @@ export function normalizeExtractedTemplate(raw: RawExtractedTemplate): Extracted
         type: "placeholder" as const,
         key: node.key,
         raw: sanitizeDocString(node.raw ?? node.key),
+      instance_id: node.instance_id ?? undefined,
+      context: node.context ?? undefined,
       };
     }),
     placeholders: raw.placeholders.map((placeholder) => ({
@@ -88,6 +108,8 @@ export function normalizeExtractedTemplate(raw: RawExtractedTemplate): Extracted
       type: placeholder.type,
       required: placeholder.required ?? true,
       value: placeholder.value ? sanitizeDocString(placeholder.value) : null,
+      instance_id: placeholder.instance_id ?? undefined,
+      context: placeholder.context ?? undefined,
     })),
   };
 }

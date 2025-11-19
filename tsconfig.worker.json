@@ -10,6 +10,7 @@
   },
   "include": [
     "scripts/process-documents.ts",
-    "lib/**/*.ts"
+    "lib/**/*.ts",
+    "types/**/*.d.ts"
   ]
 }

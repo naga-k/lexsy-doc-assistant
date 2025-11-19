@@ -55,9 +55,13 @@ export async function extractTemplateFromText(text: string): Promise<ExtractedTe
     `[extractTemplateFromText] Processing ${chunks.length} chunk${chunks.length === 1 ? "" : "s"}`
   );
   const chunkTemplates = await Promise.all(
-    chunks.map((chunk, index) => extractChunkTemplate(chunk, index, chunks.length))
+    chunks.map((chunk, index) =>
+      extractChunkTemplate(chunk, index, chunks.length).then((raw) =>
+        attachOriginalRawTokens(normalizeExtractedTemplate(raw), chunk)
+      )
+    )
   );
-  const mergedTemplate = mergeTemplates(chunkTemplates.map(normalizeExtractedTemplate));
+  const mergedTemplate = mergeTemplates(chunkTemplates);
   const result = ensureUniquePlaceholderKeys(mergedTemplate);
   const durationMs = Date.now() - start;
   console.info(
@@ -81,10 +85,12 @@ export async function extractTemplateChunkRange(
   const slice = chunks.slice(startIndex, startIndex + count);
   const chunkTemplates = await Promise.all(
     slice.map((chunk, sliceIndex) =>
-      extractChunkTemplate(chunk, startIndex + sliceIndex, chunks.length)
+      extractChunkTemplate(chunk, startIndex + sliceIndex, chunks.length).then((raw) =>
+        attachOriginalRawTokens(normalizeExtractedTemplate(raw), chunk)
+      )
     )
   );
-  const mergedTemplate = mergeTemplates(chunkTemplates.map(normalizeExtractedTemplate));
+  const mergedTemplate = mergeTemplates(chunkTemplates);
   return ensureUniquePlaceholderKeys(mergedTemplate, options?.usageMap);
 }
 
@@ -96,9 +102,11 @@ export async function extractTemplateChunk(
   if (chunks.length === 0 || chunkIndex >= chunks.length || chunkIndex < 0) {
     return null;
   }
-  const raw = await extractChunkTemplate(chunks[chunkIndex], chunkIndex, chunks.length);
+  const chunk = chunks[chunkIndex];
+  const raw = await extractChunkTemplate(chunk, chunkIndex, chunks.length);
   const normalized = normalizeExtractedTemplate(raw);
-  return ensureUniquePlaceholderKeys(normalized, options?.usageMap);
+  const enriched = attachOriginalRawTokens(normalized, chunk);
+  return ensureUniquePlaceholderKeys(enriched, options?.usageMap);
 }
 
 export function buildPlaceholderKeyUsage(placeholders: Placeholder[]): Map<string, number> {
@@ -121,16 +129,17 @@ async function extractChunkTemplate(
     totalChunks > 1 ? `DOCUMENT CHUNK (${chunkIndex + 1}/${totalChunks})` : "DOCUMENT TEXT";
   const attemptExtraction = () =>
     generateObject({
-      model: openai("gpt-5-mini"),
+      model: openai("gpt-5"),
       schema: extractedTemplateSchema,
       system: EXTRACTION_SYSTEM_PROMPT,
-      prompt: buildExtractionPrompt(header, chunk),
+      prompt: buildExtractionPrompt(header, chunk, chunkIndex),
     });
   const { object } = await runExtractionWithRetry(attemptExtraction, chunkIndex, totalChunks);
   return object;
 }
 
-function buildExtractionPrompt(header: string, chunk: string): string {
+function buildExtractionPrompt(header: string, chunk: string, chunkIndex: number): string {
+  const chunkLabel = `CHUNK_${chunkIndex + 1}`;
   const placeholderTypes = placeholderValueTypeSchema.options.join(", ");
   return [
     `${header}`,
@@ -142,6 +151,10 @@ function buildExtractionPrompt(header: string, chunk: string): string {
     "1. Walk the text sequentially to build docAst nodes (either plain text or placeholder).",
     "2. Whenever a placeholder token appears (e.g. [Company Name], $[_____], {{value}}), add a placeholder node and a matching entry in placeholders.",
     "3. For each placeholder capture: key, raw token, <=30 character human-readable description, data type, required flag, and set value=null.",
+    `4. Replace placeholder text in docAst with a unique label following this format: [${chunkLabel}_<slug>_<running_number>].`,
+    `   - <slug> should be a concise snake_case summary (e.g. company_name, purchase_amount).`,
+    `   - Use a 1-based <running_number> scoped per slug within this chunk.`,
+    `   - The placeholder entry's "raw" field must match the exact label inserted into docAst.`,
     "## Output rules",
     "- Keep keys snake_cased with no spaces.",
     "- Description must be concise (<30 chars) and reflect the field purpose.",
@@ -229,20 +242,113 @@ function mergeTemplates(templates: ExtractedTemplate[]): ExtractedTemplate {
   };
 }
 
+const PLACEHOLDER_TOKEN_PATTERNS: RegExp[] = [
+  /\$\[[^\[\]\r\n]{2,}\]/g,
+  /\[[^\[\]\r\n]{2,}\]/g,
+  /\{\{[^{}\r\n]{2,}\}\}/g,
+  /<<[^<>\r\n]{2,}>>/g,
+  /_{3,}/g,
+];
+
+function attachOriginalRawTokens(template: ExtractedTemplate, chunkText: string): ExtractedTemplate {
+  if (!chunkText || template.placeholders.length === 0) {
+    return template;
+  }
+  const candidates = extractOriginalPlaceholderTokens(chunkText);
+  if (candidates.length === 0) {
+    return template;
+  }
+
+  let candidateIndex = 0;
+  const placeholders = template.placeholders.map((placeholder) => {
+    const existing = placeholder.context?.original_raw;
+    if (existing && existing.trim().length > 0) {
+      return placeholder;
+    }
+    const nextToken = candidates[candidateIndex];
+    if (!nextToken) {
+      return placeholder;
+    }
+    candidateIndex += 1;
+    return {
+      ...placeholder,
+      context: {
+        ...(placeholder.context ?? {}),
+        original_raw: nextToken,
+      },
+    };
+  });
+
+  return {
+    ...template,
+    placeholders,
+  };
+}
+
+function extractOriginalPlaceholderTokens(text: string): string[] {
+  const matches: Array<{ value: string; start: number; end: number }> = [];
+  for (const pattern of PLACEHOLDER_TOKEN_PATTERNS) {
+    pattern.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+      const start = match.index ?? text.indexOf(match[0]);
+      const end = start + match[0].length;
+      matches.push({ value: match[0], start, end });
+    }
+  }
+  if (matches.length === 0) {
+    return [];
+  }
+  matches.sort((a, b) => a.start - b.start);
+  const occupied: Array<{ start: number; end: number }> = [];
+  const tokens: string[] = [];
+  for (const entry of matches) {
+    const overlaps = occupied.some((range) => entry.start < range.end && entry.end > range.start);
+    if (overlaps) {
+      continue;
+    }
+    occupied.push({ start: entry.start, end: entry.end });
+    const cleaned = entry.value.trim();
+    if (cleaned.length > 0) {
+      tokens.push(cleaned);
+    }
+  }
+  return tokens;
+}
+
 function ensureUniquePlaceholderKeys(
   template: ExtractedTemplate,
   seedUsage?: Map<string, number>
 ): ExtractedTemplate {
   const keyUsage = seedUsage ?? new Map<string, number>();
   const keyMap = new Map<string, string>();
+  const placeholderMeta = new Map<
+    string,
+    { instanceId: string; context: Placeholder["context"]; rawToken: string }
+  >();
+  let occurrence = 0;
 
   const placeholders = template.placeholders.map((placeholder, index) => {
     const baseKey = buildPlaceholderKey(placeholder, index);
     const uniqueKey = getUniqueKey(baseKey, keyUsage);
     keyMap.set(placeholder.key, uniqueKey);
+    occurrence += 1;
+    const instanceId =
+      placeholder.instance_id?.trim() ||
+      `placeholder_${occurrence.toString().padStart(4, "0")}`;
+    const context = {
+      ...(placeholder.context ?? {}),
+      index: placeholder.context?.index ?? occurrence,
+      original_raw: placeholder.context?.original_raw ?? placeholder.raw ?? "",
+    };
+    const rawToken = `[${uniqueKey.toUpperCase()}]`;
+    placeholderMeta.set(uniqueKey, { instanceId, context, rawToken });
     return {
       ...placeholder,
       key: uniqueKey,
+      raw: rawToken,
+      instance_id: instanceId,
+      context,
     };
   });
 
@@ -251,9 +357,13 @@ function ensureUniquePlaceholderKeys(
       return node;
     }
     const nextKey = keyMap.get(node.key) ?? node.key;
+    const meta = placeholderMeta.get(nextKey);
     return {
       ...node,
       key: nextKey,
+      raw: meta?.rawToken ?? `[${nextKey}]`,
+      instance_id: meta?.instanceId ?? node.instance_id ?? undefined,
+      context: meta?.context ?? node.context ?? undefined,
     };
   });
 

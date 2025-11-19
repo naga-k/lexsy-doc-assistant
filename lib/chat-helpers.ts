@@ -31,7 +31,7 @@ export async function inferAssignmentsFromMessage(
   const allowedKeys = new Set(placeholderCatalog.map((item) => item.key));
 
   const { object } = await generateObject({
-    model: openai("gpt-5-mini"),
+    model: openai("gpt-5"),
     schema: assignmentsSchema,
     system:
       "You extract structured placeholder assignments from a user message. " +
