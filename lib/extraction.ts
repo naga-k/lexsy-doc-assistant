@@ -129,7 +129,7 @@ async function extractChunkTemplate(
     totalChunks > 1 ? `DOCUMENT CHUNK (${chunkIndex + 1}/${totalChunks})` : "DOCUMENT TEXT";
   const attemptExtraction = () =>
     generateObject({
-      model: openai("gpt-5"),
+      model: openai("gpt-5-mini"),
       schema: extractedTemplateSchema,
       system: EXTRACTION_SYSTEM_PROMPT,
       prompt: buildExtractionPrompt(header, chunk, chunkIndex),

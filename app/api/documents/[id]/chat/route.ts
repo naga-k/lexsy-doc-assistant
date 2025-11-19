@@ -46,7 +46,7 @@ export async function POST(
   });
 
   const stream = await streamText({
-    model: openai("gpt-5"),
+    model: openai("gpt-5-mini"),
     system: systemPrompt,
     messages: modelMessages,
     tools,
