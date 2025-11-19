@@ -234,6 +234,20 @@ export async function updateFilledBlobUrl(
   return stripPrivateDocumentFields(normalizeRecord(result.rows[0]));
 }
 
+export async function updateOriginalBlobUrl(id: string, url: string): Promise<InternalDocumentRecord | null> {
+  await ensureDocumentsTable();
+  const result = await sql<DocumentRow>`
+    UPDATE documents
+    SET original_blob_url = ${url}
+    WHERE id = ${id}
+    RETURNING *;
+  `;
+  if (!result.rows[0]) {
+    return null;
+  }
+  return normalizeRecord(result.rows[0]);
+}
+
 function normalizeRecord(row: DocumentRow): InternalDocumentRecord {
   const template =
     typeof row.template_json === "string"

@@ -6,33 +6,50 @@ export async function extractRawText(buffer: Buffer): Promise<string> {
   return value ?? "";
 }
 
+export interface DocxFillResult {
+  buffer: Buffer;
+  replacementsApplied: boolean;
+  appliedCount: number;
+}
+
 export async function fillDocxTemplate(
   buffer: Buffer,
   replacements: Array<{ raw: string; value: string }>
-): Promise<Buffer> {
+): Promise<DocxFillResult> {
   const zip = await JSZip.loadAsync(buffer);
   const document = zip.file("word/document.xml");
   if (!document) {
     throw new Error("word/document.xml not found in template");
   }
   let xml = await document.async("text");
+  let replacementsApplied = false;
+  let appliedCount = 0;
 
   for (const { raw, value } of replacements) {
     if (!value || !raw) continue;
     const safeValue = escapeXml(value);
     const sanitizedRaw = escapeXml(raw);
-    if (xml.includes(sanitizedRaw)) {
-      xml = xml.split(sanitizedRaw).join(safeValue);
+
+    const attempts: Array<() => { updated: string; replaced: boolean }> = [
+      () => replaceFirstLiteral(xml, sanitizedRaw, safeValue),
+      () => replaceFirstLiteral(xml, raw, safeValue),
+      () => replaceFirstRegex(xml, buildInterleavedPlaceholderRegex(raw), safeValue),
+    ];
+
+    for (const attempt of attempts) {
+      const { updated, replaced } = attempt();
+      if (replaced) {
+        replacementsApplied = true;
+        xml = updated;
+        appliedCount += 1;
+        break;
+      }
     }
-    if (xml.includes(raw)) {
-      xml = xml.split(raw).join(safeValue);
-    }
-    const interleavedRegex = buildInterleavedPlaceholderRegex(raw);
-    xml = xml.replace(interleavedRegex, safeValue);
   }
 
   zip.file("word/document.xml", xml);
-  return zip.generateAsync({ type: "nodebuffer" });
+  const filledBuffer = await zip.generateAsync({ type: "nodebuffer" });
+  return { buffer: filledBuffer, replacementsApplied, appliedCount };
 }
 
 function buildInterleavedPlaceholderRegex(raw: string): RegExp {
@@ -40,6 +57,31 @@ function buildInterleavedPlaceholderRegex(raw: string): RegExp {
   const separator = "(?:\\s|<[^>]*>)*";
   const pattern = escapedChars.join(separator);
   return new RegExp(pattern, "g");
+}
+
+function replaceFirstLiteral(haystack: string, needle: string, value: string) {
+  if (!needle || needle === value) {
+    return { updated: haystack, replaced: false };
+  }
+  const index = haystack.indexOf(needle);
+  if (index === -1) {
+    return { updated: haystack, replaced: false };
+  }
+  const updated = `${haystack.slice(0, index)}${value}${haystack.slice(index + needle.length)}`;
+  return { updated, replaced: true };
+}
+
+function replaceFirstRegex(haystack: string, pattern: RegExp, value: string) {
+  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+  const globalPattern = new RegExp(pattern.source, flags);
+  const match = globalPattern.exec(haystack);
+  if (!match || typeof match.index !== "number") {
+    return { updated: haystack, replaced: false };
+  }
+  const start = match.index;
+  const end = start + match[0].length;
+  const updated = `${haystack.slice(0, start)}${value}${haystack.slice(end)}`;
+  return { updated, replaced: true };
 }
 
 function escapeXml(value: string): string {

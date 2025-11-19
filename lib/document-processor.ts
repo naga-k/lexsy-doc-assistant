@@ -1,3 +1,4 @@
+import { put } from "@vercel/blob";
 import {
   buildPlaceholderKeyUsage,
   chunkDocumentText,
@@ -9,8 +10,11 @@ import {
   updateDocumentProcessingState,
   updateTemplateJson,
   stripPrivateDocumentFields,
+  updateOriginalBlobUrl,
 } from "./documents";
 import type { DocumentRecord, ExtractedTemplate, InternalDocumentRecord } from "./types";
+import { fillDocxTemplate } from "./docx";
+import { fillDocxWithSuperDoc } from "./superdoc-headless";
 
 export type ProcessBatchStatus = "missing" | "ready" | "processing" | "failed";
 
@@ -124,7 +128,7 @@ export async function processDocumentChunkBatch(
       const progress = Math.min(100, Math.round((processedChunks / totalChunks) * 100));
 
       const updated = await updateTemplateJson(documentId, latestTemplate, {
-        processing_status: isComplete ? "ready" : "processing",
+        processing_status: "processing",
         processing_progress: progress,
         processing_total_chunks: totalChunks,
         processing_next_chunk: processedChunks,
@@ -141,13 +145,43 @@ export async function processDocumentChunkBatch(
         chunkNumber: processedChunks,
         totalChunks,
         progress,
-        status: isComplete ? "ready" : "processing",
+        status: "processing",
         durationMs: Date.now() - chunkStartTime,
         timestamp: new Date().toISOString(),
       });
 
       if (isComplete) {
         break;
+      }
+    }
+
+    const extractedAllChunks =
+      totalChunks > 0 && (latestDocument.processing_next_chunk ?? 0) >= totalChunks;
+
+    if (extractedAllChunks) {
+      let hydratedDocument: InternalDocumentRecord | DocumentRecord = latestDocument;
+      try {
+        const normalized = await normalizeOriginalDocument(latestDocument, latestTemplate);
+        if (normalized) {
+          hydratedDocument = normalized;
+        }
+      } catch (normalizationError) {
+        console.error("Failed to normalize DOCX placeholders", normalizationError);
+      }
+
+      const readyRecord = await updateDocumentProcessingState(documentId, {
+        processing_status: "ready",
+        processing_progress: 100,
+        processing_total_chunks: totalChunks,
+        processing_next_chunk: totalChunks,
+        processing_error: null,
+        plain_text: null,
+      });
+
+      if (readyRecord) {
+        latestDocument = readyRecord;
+      } else {
+        latestDocument = hydratedDocument;
       }
     }
 
@@ -174,4 +208,142 @@ export function toPublicDocument(result: ProcessBatchResult): DocumentRecord | n
     return null;
   }
   return stripPrivateDocumentFields(result.document as InternalDocumentRecord);
+}
+
+async function normalizeOriginalDocument(
+  document: InternalDocumentRecord | DocumentRecord,
+  template: ExtractedTemplate
+): Promise<InternalDocumentRecord | DocumentRecord | null> {
+  if (!document.original_blob_url) {
+    return null;
+  }
+
+  const replacementConfigs = template.placeholders
+    .map((placeholder) => {
+      const canonicalToken = placeholder.raw ?? placeholder.key;
+      if (!canonicalToken) {
+        return null;
+      }
+      const tokens = collectNormalizationTokens(placeholder);
+      if (tokens.length === 0) {
+        return null;
+      }
+      return { tokens, value: canonicalToken };
+    })
+    .filter((entry): entry is { tokens: string[]; value: string } => Boolean(entry));
+
+  if (replacementConfigs.length === 0) {
+    return null;
+  }
+
+  const response = await fetch(document.original_blob_url);
+  if (!response.ok) {
+    throw new Error("Unable to fetch DOCX for placeholder normalization.");
+  }
+  const templateBuffer = Buffer.from(await response.arrayBuffer());
+
+  const xmlReplacementEntries = buildXmlReplacementEntries(replacementConfigs);
+
+  let normalizedBuffer: Buffer | null = null;
+  let xmlReplacementStats: { appliedCount: number; expected: number } | null = null;
+  if (xmlReplacementEntries.length > 0) {
+    try {
+      const xmlResult = await fillDocxTemplate(templateBuffer, xmlReplacementEntries);
+      xmlReplacementStats = {
+        appliedCount: xmlResult.appliedCount,
+        expected: replacementConfigs.length,
+      };
+      if (xmlResult.replacementsApplied && xmlResult.appliedCount === replacementConfigs.length) {
+        normalizedBuffer = xmlResult.buffer;
+      }
+    } catch (xmlError) {
+      console.warn("XML normalization pass failed", xmlError);
+    }
+  }
+
+  const needsSuperDocFallback =
+    !normalizedBuffer ||
+    (xmlReplacementStats && xmlReplacementStats.appliedCount < xmlReplacementStats.expected);
+
+  if (needsSuperDocFallback) {
+    try {
+      normalizedBuffer = await fillDocxWithSuperDoc(templateBuffer, replacementConfigs);
+    } catch (superdocError) {
+      console.error("SuperDoc normalization failed", superdocError);
+      throw superdocError;
+    }
+  }
+
+  if (!normalizedBuffer) {
+    throw new Error("Unable to normalize DOCX placeholders.");
+  }
+  const blobKey = `documents/${document.id}/normalized-${Date.now()}.docx`;
+  const blob = await put(blobKey, normalizedBuffer, {
+    access: "public",
+    contentType: document.mime_type,
+  });
+
+  const updatedRecord = await updateOriginalBlobUrl(document.id, blob.url);
+  if (!updatedRecord) {
+    return null;
+  }
+  if ("plain_text" in document) {
+    return updatedRecord;
+  }
+  return stripPrivateDocumentFields(updatedRecord);
+}
+
+function collectNormalizationTokens(placeholder: ExtractedTemplate["placeholders"][number]): string[] {
+  const tokenSet = new Set<string>();
+
+  const addTokenVariants = (token?: string | null) => {
+    if (!token) {
+      return;
+    }
+    if (token.length > 0) {
+      tokenSet.add(token);
+    }
+    const trimmed = token.trim();
+    if (trimmed && trimmed !== token) {
+      tokenSet.add(trimmed);
+    }
+    const collapsed = trimmed.replace(/\s+/g, " ");
+    if (collapsed && collapsed !== trimmed) {
+      tokenSet.add(collapsed);
+    }
+  };
+
+  const originalRaw = placeholder.context?.original_raw;
+  addTokenVariants(originalRaw);
+
+  if (tokenSet.size === 0) {
+    if (placeholder.raw && looksLikePlaceholderToken(placeholder.raw)) {
+      addTokenVariants(placeholder.raw);
+    } else if (placeholder.key && looksLikePlaceholderToken(placeholder.key)) {
+      addTokenVariants(placeholder.key);
+    }
+  }
+
+  return Array.from(tokenSet).filter((token) => token.length > 0);
+}
+
+function looksLikePlaceholderToken(token: string): boolean {
+  return /[\[\]\{\}\(\)<>$]|_{2,}/.test(token);
+}
+
+function buildXmlReplacementEntries(
+  configs: Array<{ tokens: string[]; value: string }>
+): Array<{ raw: string; value: string }> {
+  const seen = new Set<string>();
+  const entries: Array<{ raw: string; value: string }> = [];
+  for (const config of configs) {
+    for (const token of config.tokens) {
+      if (!token || seen.has(token)) {
+        continue;
+      }
+      seen.add(token);
+      entries.push({ raw: token, value: config.value });
+    }
+  }
+  return entries;
 }

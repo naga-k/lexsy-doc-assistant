@@ -1128,8 +1128,10 @@ function PreviewBody({ template }: { template: ExtractedTemplate }) {
         }
         const placeholder = placeholderLookup.get(node.key);
         const value = placeholder?.value;
-        const displayValue = typeof value === "string" ? truncateValue(value, 80) : value;
-        const tooltipText = typeof value === "string" && value.trim() !== "" ? value : placeholder?.raw;
+        const hasValue = typeof value === "string" && value.trim() !== "";
+        const fallbackLabel = placeholder?.instance_id ?? placeholder?.raw ?? node.raw;
+        const displayValue = hasValue ? truncateValue(value as string, 80) : fallbackLabel;
+        const tooltipText = hasValue ? value : fallbackLabel;
         return (
           <span
             key={`placeholder-${node.key}-${index}`}
