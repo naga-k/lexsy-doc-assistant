@@ -3,6 +3,7 @@ import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { getDocumentById } from "@/lib/documents";
 import type { Placeholder } from "@/lib/types";
+import { getPlaceholderQuestionLabel } from "@/lib/chat/placeholder-label";
 
 export const maxDuration = 30;
 
@@ -114,7 +115,7 @@ async function streamIntroText({
   const cleanedTitle = normalizeFilename(filename);
   const outstandingLabels = outstandingPlaceholders
     .slice(0, 3)
-    .map((placeholder) => `- ${sanitizeLabel(placeholder.raw ?? placeholder.key)}`)
+    .map((placeholder) => `- ${getPlaceholderQuestionLabel(placeholder)}`)
     .join("\n") || "- None";
 
   const prompt = joinPrompt([
@@ -152,7 +153,7 @@ async function streamPlaceholderText({
   placeholder,
 }: PlaceholderPromptConfig) {
   const cleanedTitle = normalizeFilename(filename);
-  const label = sanitizeLabel(placeholder.raw ?? placeholder.key);
+  const label = getPlaceholderQuestionLabel(placeholder);
   const context = placeholder.description?.trim();
   const prompt = joinPrompt([
     `Document title: ${cleanedTitle}`,
@@ -196,12 +197,6 @@ function normalizeFilename(filename: string): string {
   return tokens.join(" ").trim();
 }
 
-function sanitizeLabel(value: string | undefined): string {
-  if (!value) {
-    return "this field";
-  }
-  return value.replace(/[\[\]{}<>]/g, "").trim();
-}
 
 function joinPrompt(lines: ReadonlyArray<string>): string {
   return lines.map((line) => line.trim()).filter(Boolean).join("\n");

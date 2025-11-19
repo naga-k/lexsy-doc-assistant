@@ -1,4 +1,5 @@
 import type { ExtractedTemplate, Placeholder } from "@/lib/types";
+import { getPlaceholderDisplayName } from "./placeholder-label";
 
 export interface PlaceholderDescription {
   key: string;
@@ -11,12 +12,13 @@ export interface PlaceholderDescription {
 export function buildPlaceholderSummary(template: ExtractedTemplate): string {
   return template.placeholders
     .map((placeholder) => {
+      const label = getPlaceholderDisplayName(placeholder);
       const status = placeholder.value
         ? `✅ ${placeholder.value}`
         : placeholder.required
           ? "⚠️ Missing"
           : "Optional";
-      return `${placeholder.key} (${placeholder.raw}): ${status}`;
+      return `${label} (key: ${placeholder.key}): ${status}`;
     })
     .join("\n");
 }
@@ -31,7 +33,7 @@ export function describePlaceholder(
 ): PlaceholderDescription {
   return {
     key: placeholder.key,
-    label: placeholder.raw ?? placeholder.key,
+    label: getPlaceholderDisplayName(placeholder),
     required: Boolean(placeholder.required),
     value: placeholder.value ?? null,
     description: includeDescription ? placeholder.description || null : undefined,
