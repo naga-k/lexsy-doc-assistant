@@ -1,4 +1,5 @@
 import type { Placeholder } from "@/lib/types";
+import { getPlaceholderQuestionLabel } from "./placeholder-label";
 
 interface BuildSystemPromptOptions {
   baseInstructions: string;
@@ -45,8 +46,8 @@ export function buildNextPlaceholderPrompt(placeholder: Placeholder | undefined)
     return "All placeholders appear filled. Double-check the values and confirm the document is ready.";
   }
 
-  const label = placeholder.raw || placeholder.description || placeholder.key;
-  return `Next field to focus on: ${label}. Ask exactly one simple question to capture the value.`;
+  const label = getPlaceholderQuestionLabel(placeholder);
+  return `Next field to focus on: ${label}. Ask exactly one plain question without mentioning placeholder codes.`;
 }
 
 function buildPrompt(lines: ReadonlyArray<string>): string {
