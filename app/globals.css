@@ -281,14 +281,17 @@ body {
   color: rgba(245, 242, 251, 0.65) !important;
 }
 
-.lexsy-message-user {
-  background: linear-gradient(120deg, var(--lexsy-rose), var(--lexsy-coral));
+.lexsy-message-user,
+.group.is-user .group-\[\.is-user\]\:lexsy-message-user {
+  /* Match the send-button gradient exactly for user bubbles. */
+  background-image: linear-gradient(to bottom right, #ff5ea8, #ff8c7a);
   color: var(--lexsy-ink);
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
 }
 
-.lexsy-message-assistant {
+.lexsy-message-assistant,
+.group.is-assistant .group-\[\.is-assistant\]\:lexsy-message-assistant {
   background: rgba(20, 20, 32, 0.85);
   color: rgba(245, 242, 251, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.12);
