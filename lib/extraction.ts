@@ -513,5 +513,50 @@ function getUniqueKey(baseKey: string, usage: Map<string, number>): string {
 }
 
 function isAnonymousRaw(raw: string): boolean {
-  return /^\s*[\[\(\{«“]?[_\s.-]{2,}[\]\)\}»”]?\s*$/.test(raw);
+  return /^\s*[\[\(\{«"]?[_\s.-]{2,}[\]\)\}»"]?\s*$/.test(raw);
+}
+
+/**
+ * Deduplicate placeholder keys after parallel chunk processing.
+ * This handles the race condition where multiple chunks may generate
+ * the same key (e.g., company_name_2) when processed in parallel.
+ */
+export function deduplicatePlaceholderKeys(template: ExtractedTemplate): ExtractedTemplate {
+  const keyUsage = new Map<string, number>();
+  const keyRenames = new Map<string, string>(); // instanceId -> newKey
+
+  const placeholders = template.placeholders.map((p) => {
+    const baseKey = p.key;
+    const count = keyUsage.get(baseKey) ?? 0;
+    keyUsage.set(baseKey, count + 1);
+
+    if (count === 0) {
+      return p; // First occurrence, keep as-is
+    }
+
+    // Duplicate - rename with suffix
+    const newKey = `${baseKey}_${count + 1}`;
+    const instanceId = p.instance_id ?? p.key;
+    keyRenames.set(instanceId, newKey);
+
+    return {
+      ...p,
+      key: newKey,
+      raw: `[${newKey.toUpperCase()}]`,
+    };
+  });
+
+  const docAst = template.docAst.map((node) => {
+    if (node.type !== "placeholder") return node;
+    const instanceId = node.instance_id ?? node.key;
+    const newKey = keyRenames.get(instanceId);
+    if (!newKey) return node;
+    return {
+      ...node,
+      key: newKey,
+      raw: `[${newKey.toUpperCase()}]`,
+    };
+  });
+
+  return { docAst, placeholders };
 }
