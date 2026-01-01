@@ -10,8 +10,11 @@ import {
 } from "./types";
 
 export const MAX_CHUNK_LENGTH = 5000;
-const EXTRACTION_SYSTEM_PROMPT =
-  "You are Lexsy's legal template parser. Extract placeholders faithfully, produce the exact JSON required by the schema, never invent tokens, and keep every description under 30 characters.";
+const EXTRACTION_SYSTEM_PROMPT = `You are Lexsy's legal template parser, a tool that helps users fill out legal document templates.
+
+IMPORTANT CONTEXT: You are performing a purely technical text-processing task. You are NOT providing legal, financial, or investment advice. You are simply identifying placeholder fields (like [Company Name], $[___], {{value}}) in document templates so users can fill them in later. This is similar to a mail-merge or form-field detection tool.
+
+Your task: Extract placeholders faithfully, produce the exact JSON required by the schema, never invent tokens, and keep every description under 30 characters.`;
 
 const EXTRACTION_OUTPUT_EXAMPLE = `{
   "docAst": [
@@ -127,15 +130,37 @@ async function extractChunkTemplate(
 ): Promise<RawExtractedTemplate> {
   const header =
     totalChunks > 1 ? `DOCUMENT CHUNK (${chunkIndex + 1}/${totalChunks})` : "DOCUMENT TEXT";
+
+  console.debug("[extractChunkTemplate] Starting extraction", {
+    chunkPosition: `${chunkIndex + 1}/${totalChunks}`,
+    chunkLength: chunk.length,
+    chunkPreview: chunk.slice(0, 200).replace(/\n/g, "\\n"),
+  });
+
   const attemptExtraction = () =>
     generateObject({
-      model: openai("gpt-5-mini"),
+      model: openai("gpt-4o-mini"),
       schema: extractedTemplateSchema,
       system: EXTRACTION_SYSTEM_PROMPT,
       prompt: buildExtractionPrompt(header, chunk, chunkIndex),
     });
-  const { object } = await runExtractionWithRetry(attemptExtraction, chunkIndex, totalChunks);
-  return object;
+
+  try {
+    const { object } = await runExtractionWithRetry(attemptExtraction, chunkIndex, totalChunks);
+    console.debug("[extractChunkTemplate] Extraction succeeded", {
+      chunkPosition: `${chunkIndex + 1}/${totalChunks}`,
+      placeholdersFound: object.placeholders?.length ?? 0,
+      docAstNodes: object.docAst?.length ?? 0,
+    });
+    return object;
+  } catch (error) {
+    console.error("[extractChunkTemplate] Extraction failed", {
+      chunkPosition: `${chunkIndex + 1}/${totalChunks}`,
+      chunkLength: chunk.length,
+      chunkContent: chunk.slice(0, 1000),
+    });
+    throw error;
+  }
 }
 
 function buildExtractionPrompt(header: string, chunk: string, chunkIndex: number): string {
@@ -179,22 +204,98 @@ async function runExtractionWithRetry<T>(
       return await task();
     } catch (error) {
       lastError = error;
+      // Extract detailed error information for debugging
+      const errorDetails = extractErrorDetails(error);
       if (attempt < EXTRACTION_MAX_ATTEMPTS) {
         console.warn("[extractTemplateChunk] Retrying chunk", {
           chunkPosition: `${chunkIndex + 1}/${totalChunks}`,
           attempt,
           maxAttempts: EXTRACTION_MAX_ATTEMPTS,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorDetails.message,
+          errorType: errorDetails.type,
+          ...(errorDetails.cause && { cause: errorDetails.cause }),
+          ...(errorDetails.text && { rawResponsePreview: errorDetails.text.slice(0, 500) }),
+          ...(errorDetails.finishReason && { finishReason: errorDetails.finishReason }),
+          ...(errorDetails.usage && { tokenUsage: errorDetails.usage }),
         });
         if (EXTRACTION_RETRY_DELAY_MS > 0) {
           await delay(EXTRACTION_RETRY_DELAY_MS);
         }
+      } else {
+        // Log full details on final failure
+        console.error("[extractTemplateChunk] Final failure after all retries", {
+          chunkPosition: `${chunkIndex + 1}/${totalChunks}`,
+          attempts: attempt,
+          error: errorDetails.message,
+          errorType: errorDetails.type,
+          ...(errorDetails.cause && { cause: errorDetails.cause }),
+          ...(errorDetails.text && { rawResponse: errorDetails.text }),
+          ...(errorDetails.finishReason && { finishReason: errorDetails.finishReason }),
+          ...(errorDetails.usage && { tokenUsage: errorDetails.usage }),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
       }
     }
   }
   const errorMessage =
     lastError instanceof Error ? lastError.message : "Template extraction failed after retries";
   throw new Error(errorMessage);
+}
+
+interface ErrorDetails {
+  message: string;
+  type: string;
+  cause?: string;
+  text?: string;
+  finishReason?: string;
+  usage?: Record<string, unknown>;
+}
+
+function extractErrorDetails(error: unknown): ErrorDetails {
+  if (!(error instanceof Error)) {
+    return { message: String(error), type: "unknown" };
+  }
+
+  const details: ErrorDetails = {
+    message: error.message,
+    type: error.constructor.name,
+  };
+
+  // Extract cause if present
+  if ("cause" in error && error.cause) {
+    details.cause = error.cause instanceof Error ? error.cause.message : String(error.cause);
+  }
+
+  // AI SDK specific: extract raw text from NoObjectGeneratedError
+  if ("text" in error && typeof (error as { text?: unknown }).text === "string") {
+    details.text = (error as { text: string }).text;
+  }
+
+  // AI SDK specific: extract finish reason
+  if ("finishReason" in error && (error as { finishReason?: unknown }).finishReason) {
+    details.finishReason = String((error as { finishReason: unknown }).finishReason);
+  }
+
+  // AI SDK specific: extract token usage
+  if ("usage" in error && (error as { usage?: unknown }).usage) {
+    const usage = (error as { usage: unknown }).usage;
+    if (typeof usage === "object" && usage !== null) {
+      details.usage = usage as Record<string, unknown>;
+    }
+  }
+
+  // Try to extract response from cause chain
+  if ("response" in error && (error as { response?: unknown }).response) {
+    const response = (error as { response: unknown }).response;
+    if (typeof response === "object" && response !== null) {
+      const resp = response as Record<string, unknown>;
+      if (resp.text && typeof resp.text === "string") {
+        details.text = resp.text;
+      }
+    }
+  }
+
+  return details;
 }
 
 function delay(ms: number): Promise<void> {
