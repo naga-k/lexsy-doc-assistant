@@ -66,7 +66,7 @@ Single `documents` table in Vercel Postgres with columns for document metadata, 
 
 ## Required Environment Variables
 
-```
+```bash
 POSTGRES_URL          # Vercel/Neon Postgres connection string
 BLOB_READ_WRITE_TOKEN # Vercel Blob storage token
 OPENAI_API_KEY        # OpenAI API key for extraction + chat

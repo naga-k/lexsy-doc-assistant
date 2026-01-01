@@ -522,20 +522,28 @@ function isAnonymousRaw(raw: string): boolean {
  * the same key (e.g., company_name_2) when processed in parallel.
  */
 export function deduplicatePlaceholderKeys(template: ExtractedTemplate): ExtractedTemplate {
-  const keyUsage = new Map<string, number>();
+  // Pre-scan all existing keys to detect collisions when renaming
+  const existingKeys = new Set<string>(template.placeholders.map((p) => p.key));
+  const seenKeys = new Set<string>();
   const keyRenames = new Map<string, string>(); // instanceId -> newKey
 
   const placeholders = template.placeholders.map((p) => {
     const baseKey = p.key;
-    const count = keyUsage.get(baseKey) ?? 0;
-    keyUsage.set(baseKey, count + 1);
 
-    if (count === 0) {
+    if (!seenKeys.has(baseKey)) {
+      seenKeys.add(baseKey);
       return p; // First occurrence, keep as-is
     }
 
-    // Duplicate - rename with suffix
-    const newKey = `${baseKey}_${count + 1}`;
+    // Duplicate - find a unique suffix that doesn't collide with existing keys
+    let suffix = 2;
+    let newKey = `${baseKey}_${suffix}`;
+    while (existingKeys.has(newKey) || seenKeys.has(newKey)) {
+      suffix++;
+      newKey = `${baseKey}_${suffix}`;
+    }
+    seenKeys.add(newKey);
+
     const instanceId = p.instance_id ?? p.key;
     keyRenames.set(instanceId, newKey);
 

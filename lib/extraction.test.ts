@@ -107,4 +107,47 @@ describe("deduplicatePlaceholderKeys", () => {
     const placeholderNodes = result.docAst.filter((n) => n.type === "placeholder");
     expect(placeholderNodes[1].raw).toBe("[COMPANY_NAME_2]");
   });
+
+  it("should avoid collision when renamed key already exists", () => {
+    // This tests the scenario where parallel processing creates:
+    // [company_name, company_name_2, company_name, company_name_2]
+    // The third key should NOT become company_name_2 since that already exists
+    const template = createTemplate([
+      "company_name",
+      "company_name_2",
+      "company_name",
+      "company_name_2",
+    ]);
+
+    const result = deduplicatePlaceholderKeys(template);
+
+    expect(result.placeholders.map((p) => p.key)).toEqual([
+      "company_name",
+      "company_name_2",
+      "company_name_3", // Skips _2 since it already exists
+      "company_name_2_2",
+    ]);
+  });
+
+  it("should handle multiple collisions requiring suffix jumps", () => {
+    // Test scenario: company_name, company_name_2, company_name_3, company_name, company_name
+    // When deduplicating the 4th and 5th, they should skip existing suffixes
+    const template = createTemplate([
+      "company_name",
+      "company_name_2",
+      "company_name_3",
+      "company_name",
+      "company_name",
+    ]);
+
+    const result = deduplicatePlaceholderKeys(template);
+
+    expect(result.placeholders.map((p) => p.key)).toEqual([
+      "company_name",
+      "company_name_2",
+      "company_name_3",
+      "company_name_4", // Skips _2 and _3 since they exist
+      "company_name_5",
+    ]);
+  });
 });
