@@ -2,6 +2,7 @@ import { put } from "@vercel/blob";
 import {
   buildPlaceholderKeyUsage,
   chunkDocumentText,
+  deduplicatePlaceholderKeys,
   extractTemplateChunk,
   MAX_CHUNK_LENGTH,
 } from "./extraction";
@@ -158,6 +159,15 @@ export async function processDocumentChunkBatch(
       totalChunks > 0 && (latestDocument.processing_next_chunk ?? 0) >= totalChunks;
 
     if (extractedAllChunks) {
+      // Deduplicate keys after parallel chunk processing to handle race conditions
+      latestTemplate = deduplicatePlaceholderKeys(latestTemplate);
+
+      // Save the deduplicated template to database
+      const deduplicatedDoc = await updateTemplateJson(documentId, latestTemplate);
+      if (deduplicatedDoc) {
+        latestDocument = deduplicatedDoc;
+      }
+
       let hydratedDocument: InternalDocumentRecord | DocumentRecord = latestDocument;
       try {
         const normalized = await normalizeOriginalDocument(latestDocument, latestTemplate);
